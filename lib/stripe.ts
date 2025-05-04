@@ -29,7 +29,7 @@ export const getStripeSession = async ({
     ],
     customer_update: { name: "auto", address: "auto" },
     success_url: successUrl || `${domainUrl}/payment/success`,
-    cancel_url: `${domainUrl}/payment/cancelled`,
+    cancel_url: `${domainUrl}/payment/cancel`,
   });
 
   return session.url as string;
