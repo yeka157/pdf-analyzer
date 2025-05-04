@@ -321,62 +321,62 @@ async function handlePaymentSucceeded(invoiceData: Stripe.Invoice) {
 //   };
 // }
 
-function mapSubscriptionData(
-  subscription: Stripe.Subscription & { [key: string]: any },
-  userId: string
-) {
-  // Get start date from available properties
-  let startTimestamp = subscription.start_date;
-  if (!startTimestamp && subscription.billing_cycle_anchor) {
-    startTimestamp = subscription.billing_cycle_anchor;
-  }
-  if (!startTimestamp && subscription.created) {
-    startTimestamp = subscription.created;
-  }
+// function mapSubscriptionData(
+//   subscription: Stripe.Subscription & { [key: string]: any },
+//   userId: string
+// ) {
+//   // Get start date from available properties
+//   let startTimestamp = subscription.start_date;
+//   if (!startTimestamp && subscription.billing_cycle_anchor) {
+//     startTimestamp = subscription.billing_cycle_anchor;
+//   }
+//   if (!startTimestamp && subscription.created) {
+//     startTimestamp = subscription.created;
+//   }
 
-  // Calculate end date
-  let endDate = new Date();
-  const startDate = new Date(startTimestamp * 1000);
+//   // Calculate end date
+//   let endDate = new Date();
+//   const startDate = new Date(startTimestamp * 1000);
 
-  // Get interval
-  let interval = "month"; // Default
-  if (subscription.items?.data?.[0]?.plan?.interval) {
-    interval = subscription.items.data[0].plan.interval;
-  }
+//   // Get interval
+//   let interval = "month"; // Default
+//   if (subscription.items?.data?.[0]?.plan?.interval) {
+//     interval = subscription.items.data[0].plan.interval;
+//   }
 
-  // Calculate end date based on interval
-  switch (interval) {
-    case "day":
-      endDate = new Date(startDate.getTime());
-      endDate.setDate(endDate.getDate() + 1);
-      break;
-    case "week":
-      endDate = new Date(startDate.getTime());
-      endDate.setDate(endDate.getDate() + 7);
-      break;
-    case "month":
-      endDate = new Date(startDate.getTime());
-      endDate.setMonth(endDate.getMonth() + 1);
-      break;
-    case "year":
-      endDate = new Date(startDate.getTime());
-      endDate.setFullYear(endDate.getFullYear() + 1);
-      break;
-    default:
-      endDate = new Date(startDate.getTime());
-      endDate.setMonth(endDate.getMonth() + 1);
-  }
+//   // Calculate end date based on interval
+//   switch (interval) {
+//     case "day":
+//       endDate = new Date(startDate.getTime());
+//       endDate.setDate(endDate.getDate() + 1);
+//       break;
+//     case "week":
+//       endDate = new Date(startDate.getTime());
+//       endDate.setDate(endDate.getDate() + 7);
+//       break;
+//     case "month":
+//       endDate = new Date(startDate.getTime());
+//       endDate.setMonth(endDate.getMonth() + 1);
+//       break;
+//     case "year":
+//       endDate = new Date(startDate.getTime());
+//       endDate.setFullYear(endDate.getFullYear() + 1);
+//       break;
+//     default:
+//       endDate = new Date(startDate.getTime());
+//       endDate.setMonth(endDate.getMonth() + 1);
+//   }
 
-  // Get plan ID safely
-  const planId = subscription.items?.data?.[0]?.plan?.id || "unknown_plan";
+//   // Get plan ID safely
+//   const planId = subscription.items?.data?.[0]?.plan?.id || "unknown_plan";
 
-  return {
-    stripeSubscriptionId: subscription.id,
-    status: subscription.status,
-    currentPeriodStart: startDate,
-    currentPeriodEnd: endDate,
-    interval: interval,
-    planId: planId,
-    userId,
-  };
-}
+//   return {
+//     stripeSubscriptionId: subscription.id,
+//     status: subscription.status,
+//     currentPeriodStart: startDate,
+//     currentPeriodEnd: endDate,
+//     interval: interval,
+//     planId: planId,
+//     userId,
+//   };
+// }
