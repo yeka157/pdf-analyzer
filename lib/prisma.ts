@@ -11,7 +11,9 @@ export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
     adapter,
-    log: ["query"],
+    // Full query logging is useful locally but writes a line per query in
+    // production, which buries real errors and costs log ingestion.
+    log: process.env.NODE_ENV === "production" ? ["error"] : ["query"],
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

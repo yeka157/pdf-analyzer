@@ -8,13 +8,25 @@ export async function POST(req: Request) {
   const body = await req.text();
   const signature = (await headers()).get("Stripe-Signature") as string;
 
+  let event: Stripe.Event;
+
+  // A bad signature can never succeed on a retry, so it is the one case that
+  // genuinely warrants a 400.
   try {
-    const event = stripe.webhooks.constructEvent(
+    event = stripe.webhooks.constructEvent(
       body,
       signature,
       process.env.STRIPE_WEBHOOK_SECRET!
     );
+  } catch (error) {
+    console.error("Stripe webhook signature verification failed:", error);
+    return NextResponse.json(
+      { error: "Webhook signature verification failed" },
+      { status: 400 }
+    );
+  }
 
+  try {
     switch (event.type) {
       case "checkout.session.completed":
         await handleCheckoutCompleted(
@@ -38,15 +50,17 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {
-    const err = error as Error;
-    console.error(`Stripe webhook error: ${err.message}`);
+    // Anything that fails past verification — a database blip, a Stripe API
+    // timeout — is potentially transient. Returning 5xx lets Stripe retry with
+    // backoff; a 4xx would tell it to give up and the event would be lost,
+    // leaving a paying customer with no subscription record.
+    console.error(
+      `Stripe webhook handler failed for ${event.type} (${event.id}):`,
+      error
+    );
     return NextResponse.json(
-      {
-        error: `Webhook Error: ${err.message}`,
-      },
-      {
-        status: 400,
-      }
+      { error: "Webhook handler failed" },
+      { status: 500 }
     );
   }
 }
@@ -71,19 +85,29 @@ function getSubscriptionPeriod(subscription: Stripe.Subscription) {
   };
 }
 
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-  if (!session.subscription || !session.customer) return;
-
-  const subscription = await stripe.subscriptions.retrieve(
-    session.subscription as string
-  );
+/**
+ * Write a subscription's current state, creating the row if it is not there
+ * yet.
+ *
+ * Stripe delivers webhooks at least once and in no guaranteed order, so any
+ * handler may be the first to hear about a given subscription. Upserting keeps
+ * every one of them safe to run in any order and any number of times, rather
+ * than assuming `checkout.session.completed` already landed.
+ */
+async function upsertSubscription(subscription: Stripe.Subscription) {
+  const customerId =
+    typeof subscription.customer === "string"
+      ? subscription.customer
+      : subscription.customer.id;
 
   const user = await prisma.user.findUnique({
-    where: { stripeCustomerId: session.customer as string },
+    where: { stripeCustomerId: customerId },
   });
 
+  // Throwing yields a 5xx, so Stripe retries. That matters when this event
+  // beats the Clerk webhook that creates the user.
   if (!user) {
-    throw new Error("User not found for checkout session");
+    throw new Error(`No user found for Stripe customer ${customerId}`);
   }
 
   const period = getSubscriptionPeriod(subscription);
@@ -103,18 +127,24 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   });
 }
 
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+  if (!session.subscription || !session.customer) return;
+
+  const subscription = await stripe.subscriptions.retrieve(
+    session.subscription as string
+  );
+
+  await upsertSubscription(subscription);
+}
+
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  await prisma.subscription.update({
-    where: { stripeSubscriptionId: subscription.id },
-    data: {
-      status: subscription.status,
-      ...getSubscriptionPeriod(subscription),
-    },
-  });
+  await upsertSubscription(subscription);
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  await prisma.subscription.delete({
+  // deleteMany rather than delete: a redelivered event would otherwise throw
+  // because the row is already gone.
+  await prisma.subscription.deleteMany({
     where: { stripeSubscriptionId: subscription.id },
   });
 }
@@ -130,11 +160,6 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
     typeof subscriptionRef === "string" ? subscriptionRef : subscriptionRef.id;
 
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-  const { currentPeriodStart, currentPeriodEnd } =
-    getSubscriptionPeriod(subscription);
 
-  await prisma.subscription.update({
-    where: { stripeSubscriptionId: subscription.id },
-    data: { currentPeriodStart, currentPeriodEnd },
-  });
+  await upsertSubscription(subscription);
 }
