@@ -16,22 +16,23 @@ const DashboardContent = () => {
   const [summary, setSummary] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showPayments, setShowPayments] = useState(false);
+  // Derive the initial banner state from the URL rather than setting it inside
+  // an effect, which would trigger a second render pass on every mount.
+  const [showPayments, setShowPayments] = useState(
+    () => searchParams?.get("payment") === "success"
+  );
 
   useEffect(() => {
-    const isPaymentSuccess = searchParams?.get("payment") === "success";
+    if (!showPayments) return;
 
-    if (isPaymentSuccess) {
-      setShowPayments(true);
-      router.replace("/dashboard");
+    router.replace("/dashboard");
 
-      const timer = setTimeout(() => {
-        setShowPayments(false);
-      }, 5000);
+    const timer = setTimeout(() => {
+      setShowPayments(false);
+    }, 5000);
 
-      return () => clearTimeout(timer);
-    }
-  }, [searchParams, router]);
+    return () => clearTimeout(timer);
+  }, [showPayments, router]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setError("");
