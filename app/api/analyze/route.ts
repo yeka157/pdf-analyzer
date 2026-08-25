@@ -1,3 +1,4 @@
+import { checkAuthenticationAndSubscription } from "@/lib/checkAuthSubscription";
 import { API, PDF_PROCESSING } from "@/lib/constants";
 import { ApiError, handleApiError } from "@/lib/errors";
 import { rateLimiter } from "@/lib/rateLimiters";
@@ -6,6 +7,19 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(request: NextRequest) {
   try {
     await rateLimiter(request);
+
+    // Gate the endpoint itself, not just the dashboard page that calls it —
+    // otherwise anyone can POST here and consume the AI quota.
+    const authCheck = await checkAuthenticationAndSubscription();
+
+    if (!authCheck.isAuthenticated) {
+      throw new ApiError(401, "Authentication required");
+    }
+
+    if (!authCheck.hasSubscription) {
+      throw new ApiError(403, "An active subscription is required");
+    }
+
     const body = await request.json().catch(() => ({}));
 
     const { text } = body;

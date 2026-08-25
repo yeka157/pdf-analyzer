@@ -1,15 +1,29 @@
 import React from "react";
 import { prisma } from "@/lib/prisma";
 import { getStripeSession, stripe } from "@/lib/stripe";
-import { unstable_noStore } from "next/cache";
+import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { checkAuthenticationAndSubscription } from "@/lib/checkAuthSubscription";
 import GlowingButton from "@/components/LandingPage/GlowingButton";
 
+function getDomainUrl() {
+  const domainUrl =
+    process.env.NEXT_PUBLIC_URL ||
+    (process.env.NODE_ENV === "production"
+      ? process.env.PRODUCTION_URL
+      : "http://localhost:3000");
+
+  if (!domainUrl) {
+    throw new Error("Missing domain URL configuration");
+  }
+
+  return domainUrl;
+}
+
 async function getData(userId: string | null) {
-  unstable_noStore();
+  await connection();
 
   if (!userId) return null;
 
@@ -80,15 +94,21 @@ const Pricing = async () => {
       throw new Error("Failed to set stripe customer Id for user");
     }
 
-    const domainUrl =
-      process.env.NEXT_PUBLIC_URL ||
-      (process.env.NODE_ENV === "production"
-        ? process.env.PRODUCTION_URL
-        : "http://localhost:3000");
+    // Stripe is the source of truth for billing; the Subscription table is a
+    // mirror of it. If a webhook was missed the mirror can be empty while the
+    // customer is still subscribed, and this page would offer to subscribe
+    // them a second time. Ask Stripe directly before opening a new checkout.
+    const activeSubscriptions = await stripe.subscriptions.list({
+      customer: databaseUser.stripeCustomerId,
+      status: "active",
+      limit: 1,
+    });
 
-    if (!domainUrl) {
-      throw new Error("Missing domain URL configuration");
+    if (activeSubscriptions.data.length > 0) {
+      return redirect("/dashboard");
     }
+
+    const domainUrl = getDomainUrl();
 
     const subscriptionUrl = await getStripeSession({
       customerId: databaseUser.stripeCustomerId,
@@ -109,10 +129,7 @@ const Pricing = async () => {
 
     const customerPortalUrl = await stripe.billingPortal.sessions.create({
       customer: subscription?.user.stripeCustomerId as string,
-      return_url:
-        process.env.NODE_ENV === "production"
-          ? (process.env.PRODUCTION_URL as string)
-          : "http://localhost:3000",
+      return_url: getDomainUrl(),
     });
 
     return redirect(customerPortalUrl.url);
@@ -140,7 +157,7 @@ const Pricing = async () => {
             <div className="space-y-4">
               <p className="text-white/80 text-lg">Access to all features</p>
               <p className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-purple-200">
-                $19.99/year
+                $5.99/month
               </p>
               <ul className="space-y-2 text-white/70 py-4">
                 <li className="flex items-center">

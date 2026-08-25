@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
@@ -52,15 +51,32 @@ export async function POST(req: Request) {
   }
 }
 
+/**
+ * Billing periods live on the subscription's items rather than the
+ * subscription itself — `Subscription.current_period_start/end` were removed
+ * in the Basil API release to support mixed-cadence subscriptions.
+ */
+function getSubscriptionPeriod(subscription: Stripe.Subscription) {
+  const item = subscription.items.data[0];
+
+  if (!item) {
+    throw new Error(`Subscription ${subscription.id} has no items`);
+  }
+
+  return {
+    currentPeriodStart: new Date(item.current_period_start * 1000),
+    currentPeriodEnd: new Date(item.current_period_end * 1000),
+    interval: item.price.recurring?.interval ?? "month",
+    planId: item.price.id,
+  };
+}
+
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   if (!session.subscription || !session.customer) return;
 
-  const subscription = (await stripe.subscriptions.retrieve(
-    session.subscription as string,
-    {
-      expand: ["items.data.plan"],
-    }
-  )) as Stripe.Subscription & { [key: string]: any };
+  const subscription = await stripe.subscriptions.retrieve(
+    session.subscription as string
+  );
 
   const user = await prisma.user.findUnique({
     where: { stripeCustomerId: session.customer as string },
@@ -70,158 +86,29 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     throw new Error("User not found for checkout session");
   }
 
-  let startTimestamp = subscription.start_date;
-  if (!startTimestamp && subscription.billing_cycle_anchor) {
-    startTimestamp = subscription.billing_cycle_anchor;
-  }
-  if (!startTimestamp && subscription.created) {
-    startTimestamp = subscription.created;
-  }
+  const period = getSubscriptionPeriod(subscription);
 
-  // Calculate the end date based on the billing interval
-  let endDate = new Date();
-  const startDate = new Date(startTimestamp * 1000);
-
-  // Get the interval from the plan
-  let interval = "month"; // Default
-  if (subscription.items?.data?.[0]?.plan?.interval) {
-    interval = subscription.items.data[0].plan.interval;
-  }
-
-  // Calculate the end date based on the interval
-  switch (interval) {
-    case "day":
-      endDate = new Date(startDate.getTime());
-      endDate.setDate(endDate.getDate() + 1);
-      break;
-    case "week":
-      endDate = new Date(startDate.getTime());
-      endDate.setDate(endDate.getDate() + 7);
-      break;
-    case "month":
-      endDate = new Date(startDate.getTime());
-      endDate.setMonth(endDate.getMonth() + 1);
-      break;
-    case "year":
-      endDate = new Date(startDate.getTime());
-      endDate.setFullYear(endDate.getFullYear() + 1);
-      break;
-    default:
-      // Default to month
-      endDate = new Date(startDate.getTime());
-      endDate.setMonth(endDate.getMonth() + 1);
-  }
-
-  // Get the plan ID safely
-  const planId = subscription.items?.data?.[0]?.plan?.id || "unknown_plan";
-
-  // Log the calculated dates
-  console.log("Using calculated dates:", {
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
-    interval,
-  });
-
-  // Perform the upsert with our calculated dates
   await prisma.subscription.upsert({
     where: { stripeSubscriptionId: subscription.id },
     create: {
       stripeSubscriptionId: subscription.id,
       status: subscription.status,
-      currentPeriodStart: startDate,
-      currentPeriodEnd: endDate,
-      interval: interval,
-      planId: planId,
       userId: user.id,
+      ...period,
     },
     update: {
       status: subscription.status,
-      currentPeriodStart: startDate,
-      currentPeriodEnd: endDate,
-      interval: interval,
-      planId: planId,
+      ...period,
     },
   });
 }
 
-// async function handleSubscriptionUpdated(
-//   subscriptionData: Stripe.Subscription
-// ) {
-//   const subscription = subscriptionData as Stripe.Subscription & {
-//     [key: string]: any;
-//   };
-//   await prisma.subscription.update({
-//     where: { stripeSubscriptionId: subscription.id },
-//     data: {
-//       status: subscription.status,
-//       currentPeriodStart: new Date(subscription.current_period_start * 1000),
-//       currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-//       interval: subscription.items.data[0].plan.interval,
-//       planId: subscription.items.data[0].plan.id,
-//     },
-//   });
-// }
-
-async function handleSubscriptionUpdated(
-  subscriptionData: Stripe.Subscription
-) {
-  const subscription = subscriptionData as Stripe.Subscription & {
-    [key: string]: any;
-  };
-
-  // Get start date from available properties
-  let startTimestamp = subscription.start_date;
-  if (!startTimestamp && subscription.billing_cycle_anchor) {
-    startTimestamp = subscription.billing_cycle_anchor;
-  }
-  if (!startTimestamp && subscription.created) {
-    startTimestamp = subscription.created;
-  }
-
-  // Calculate end date
-  let endDate = new Date();
-  const startDate = new Date(startTimestamp * 1000);
-
-  // Get interval
-  let interval = "month"; // Default
-  if (subscription.items?.data?.[0]?.plan?.interval) {
-    interval = subscription.items.data[0].plan.interval;
-  }
-
-  // Calculate end date based on interval
-  switch (interval) {
-    case "day":
-      endDate = new Date(startDate.getTime());
-      endDate.setDate(endDate.getDate() + 1);
-      break;
-    case "week":
-      endDate = new Date(startDate.getTime());
-      endDate.setDate(endDate.getDate() + 7);
-      break;
-    case "month":
-      endDate = new Date(startDate.getTime());
-      endDate.setMonth(endDate.getMonth() + 1);
-      break;
-    case "year":
-      endDate = new Date(startDate.getTime());
-      endDate.setFullYear(endDate.getFullYear() + 1);
-      break;
-    default:
-      endDate = new Date(startDate.getTime());
-      endDate.setMonth(endDate.getMonth() + 1);
-  }
-
-  // Get plan ID safely
-  const planId = subscription.items?.data?.[0]?.plan?.id || "unknown_plan";
-
+async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   await prisma.subscription.update({
     where: { stripeSubscriptionId: subscription.id },
     data: {
       status: subscription.status,
-      currentPeriodStart: startDate,
-      currentPeriodEnd: endDate,
-      interval: interval,
-      planId: planId,
+      ...getSubscriptionPeriod(subscription),
     },
   });
 }
@@ -232,151 +119,22 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   });
 }
 
-// async function handlePaymentSucceeded(invoiceData: Stripe.Invoice) {
-//   const invoice = invoiceData as Stripe.Invoice & { [key: string]: any };
-//   if (!invoice.subscription) return;
-//   const subscription = (await stripe.subscriptions.retrieve(
-//     invoice.subscription as string
-//   )) as Stripe.Subscription & { [key: string]: any };
-//   await prisma.subscription.update({
-//     where: { stripeSubscriptionId: subscription.id },
-//     data: {
-//       currentPeriodStart: new Date(subscription.current_period_start * 1000),
-//       currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-//     },
-//   });
-// }
+async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
+  // `Invoice.subscription` was removed in Basil; the originating subscription
+  // now hangs off `invoice.parent.subscription_details`.
+  const subscriptionRef = invoice.parent?.subscription_details?.subscription;
 
-async function handlePaymentSucceeded(invoiceData: Stripe.Invoice) {
-  const invoice = invoiceData as Stripe.Invoice & { [key: string]: any };
-  if (!invoice.subscription) return;
+  if (!subscriptionRef) return;
 
-  const subscription = (await stripe.subscriptions.retrieve(
-    invoice.subscription as string
-  )) as Stripe.Subscription & { [key: string]: any };
+  const subscriptionId =
+    typeof subscriptionRef === "string" ? subscriptionRef : subscriptionRef.id;
 
-  // Get start date from available properties
-  let startTimestamp = subscription.start_date;
-  if (!startTimestamp && subscription.billing_cycle_anchor) {
-    startTimestamp = subscription.billing_cycle_anchor;
-  }
-  if (!startTimestamp && subscription.created) {
-    startTimestamp = subscription.created;
-  }
-
-  // Calculate end date
-  let endDate = new Date();
-  const startDate = new Date(startTimestamp * 1000);
-
-  // Get interval
-  let interval = "month"; // Default
-  if (subscription.items?.data?.[0]?.plan?.interval) {
-    interval = subscription.items.data[0].plan.interval;
-  }
-
-  // Calculate end date based on interval
-  switch (interval) {
-    case "day":
-      endDate = new Date(startDate.getTime());
-      endDate.setDate(endDate.getDate() + 1);
-      break;
-    case "week":
-      endDate = new Date(startDate.getTime());
-      endDate.setDate(endDate.getDate() + 7);
-      break;
-    case "month":
-      endDate = new Date(startDate.getTime());
-      endDate.setMonth(endDate.getMonth() + 1);
-      break;
-    case "year":
-      endDate = new Date(startDate.getTime());
-      endDate.setFullYear(endDate.getFullYear() + 1);
-      break;
-    default:
-      endDate = new Date(startDate.getTime());
-      endDate.setMonth(endDate.getMonth() + 1);
-  }
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const { currentPeriodStart, currentPeriodEnd } =
+    getSubscriptionPeriod(subscription);
 
   await prisma.subscription.update({
     where: { stripeSubscriptionId: subscription.id },
-    data: {
-      currentPeriodStart: startDate,
-      currentPeriodEnd: endDate,
-    },
+    data: { currentPeriodStart, currentPeriodEnd },
   });
 }
-
-// function mapSubscriptionData(
-//   subscription: Stripe.Subscription & { [key: string]: any },
-//   userId: string
-// ) {
-//   return {
-//     stripeSubscriptionId: subscription.id,
-//     status: subscription.status,
-//     currentPeriodStart: new Date(subscription.current_period_start * 1000),
-//     currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-//     interval: subscription.items.data[0].plan.interval,
-//     planId: subscription.items.data[0].plan.id,
-//     userId, // essential for `create`
-//   };
-// }
-
-// function mapSubscriptionData(
-//   subscription: Stripe.Subscription & { [key: string]: any },
-//   userId: string
-// ) {
-//   // Get start date from available properties
-//   let startTimestamp = subscription.start_date;
-//   if (!startTimestamp && subscription.billing_cycle_anchor) {
-//     startTimestamp = subscription.billing_cycle_anchor;
-//   }
-//   if (!startTimestamp && subscription.created) {
-//     startTimestamp = subscription.created;
-//   }
-
-//   // Calculate end date
-//   let endDate = new Date();
-//   const startDate = new Date(startTimestamp * 1000);
-
-//   // Get interval
-//   let interval = "month"; // Default
-//   if (subscription.items?.data?.[0]?.plan?.interval) {
-//     interval = subscription.items.data[0].plan.interval;
-//   }
-
-//   // Calculate end date based on interval
-//   switch (interval) {
-//     case "day":
-//       endDate = new Date(startDate.getTime());
-//       endDate.setDate(endDate.getDate() + 1);
-//       break;
-//     case "week":
-//       endDate = new Date(startDate.getTime());
-//       endDate.setDate(endDate.getDate() + 7);
-//       break;
-//     case "month":
-//       endDate = new Date(startDate.getTime());
-//       endDate.setMonth(endDate.getMonth() + 1);
-//       break;
-//     case "year":
-//       endDate = new Date(startDate.getTime());
-//       endDate.setFullYear(endDate.getFullYear() + 1);
-//       break;
-//     default:
-//       endDate = new Date(startDate.getTime());
-//       endDate.setMonth(endDate.getMonth() + 1);
-//   }
-
-//   // Get plan ID safely
-//   const planId = subscription.items?.data?.[0]?.plan?.id || "unknown_plan";
-
-//   return {
-//     stripeSubscriptionId: subscription.id,
-//     status: subscription.status,
-//     currentPeriodStart: startDate,
-//     currentPeriodEnd: endDate,
-//     interval: interval,
-//     planId: planId,
-//     userId,
-//   };
-// }

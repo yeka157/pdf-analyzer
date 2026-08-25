@@ -1,19 +1,31 @@
-import { getDocument, GlobalWorkerOptions, version } from "pdfjs-dist";
 import { PDF_PROCESSING } from "./constants";
-import { TextContent } from "pdfjs-dist/types/src/display/api";
+import type { TextContent } from "pdfjs-dist/types/src/display/api";
 
-if (typeof window !== "undefined") {
-  GlobalWorkerOptions.workerSrc = PDF_PROCESSING.WORKER_SRC;
-  console.log("PDF Version", version);
+let workerConfigured = false;
+
+/**
+ * pdfjs-dist 6 touches browser-only globals (DOMMatrix) at module scope, so it
+ * cannot be imported at the top level — client components are still evaluated
+ * during server rendering, which would throw. Load it on first use instead.
+ */
+async function loadPdfjs() {
+  const pdfjs = await import("pdfjs-dist");
+
+  if (!workerConfigured) {
+    pdfjs.GlobalWorkerOptions.workerSrc = PDF_PROCESSING.WORKER_SRC;
+    workerConfigured = true;
+  }
+
+  return pdfjs;
 }
 
 export const extractTextFromPDF = async (file: File): Promise<string> => {
   try {
+    const { getDocument } = await loadPdfjs();
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = getDocument({
       data: arrayBuffer,
       useWorkerFetch: false,
-      isEvalSupported: false,
       useSystemFonts: true,
     });
 

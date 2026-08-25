@@ -1,12 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  SignOutButton,
-} from "@clerk/nextjs";
+import { Show, SignInButton, SignOutButton } from "@clerk/nextjs";
 
 import React, { useState } from "react";
 import { Menu, X } from "lucide-react";
@@ -45,15 +40,15 @@ const Navbar = () => {
               Pricing
             </Link>
           </div>
-          <SignedIn>
+          <Show when="signed-in">
             <SignOutButton>
               <button className="text-white/70 hover:text-white px-4 py-2 transition-all duration-300 hover:shadow-[0_2px_8px_0] hover:shadow-purple-400/40 hover:rounded-md">
                 Sign Out
               </button>
             </SignOutButton>
-          </SignedIn>
+          </Show>
 
-          <SignedOut>
+          <Show when="signed-out">
             <div className="flex items-center">
               <SignInButton>
                 <Link
@@ -66,7 +61,7 @@ const Navbar = () => {
                 </Link>
               </SignInButton>
             </div>
-          </SignedOut>
+          </Show>
 
           {/* Mobile Menu Button */}
           <div className="md:hidden z-50">
@@ -109,15 +104,15 @@ const Navbar = () => {
               </Link>
 
               <div className="max-w-lg mx-auto mt-2 mb-6">
-                <SignedIn>
+                <Show when="signed-in">
                   <SignOutButton>
                     <button className="text-white/70 hover:text-white px-4 py-2 transition-all duration-300 hover:shadow-[0_2px_8px_0] hover:shadow-purple-400/40 hover:rounded-md">
                       Sign Out
                     </button>
                   </SignOutButton>
-                </SignedIn>
+                </Show>
 
-                <SignedOut>
+                <Show when="signed-out">
                   <div className="flex items-center">
                     <SignInButton>
                       <Link
@@ -130,7 +125,7 @@ const Navbar = () => {
                       </Link>
                     </SignInButton>
                   </div>
-                </SignedOut>
+                </Show>
               </div>
             </div>
           </div>
