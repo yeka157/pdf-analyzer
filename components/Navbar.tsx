@@ -1,136 +1,173 @@
 "use client";
 
 import Link from "next/link";
-import { Show, SignInButton, SignOutButton } from "@clerk/nextjs";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Show, SignOutButton } from "@clerk/nextjs";
 
-import React, { useState } from "react";
-import { Menu, X } from "lucide-react";
+import Logo from "@/components/Logo";
+import ThemeToggle from "@/components/theme/ThemeToggle";
+
+const LINKS = [
+  { href: "/dashboard", label: "Documents" },
+  { href: "/pricing", label: "Pricing" },
+];
 
 const Navbar = () => {
+  const pathname = usePathname();
   const [isOpen, setOpen] = useState(false);
 
-  const toggleMenu = () => {
-    setOpen(!isOpen);
-  };
+  // The auth screens are standalone cards in the design — no chrome above them.
+  const isAuthRoute =
+    pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up");
 
-  const closeMenu = () => {
-    setOpen(false);
-  };
+  useEffect(() => {
+    if (!isOpen) return;
+
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+
+  if (isAuthRoute) return null;
+
+  const isActive = (href: string) => pathname?.startsWith(href);
 
   return (
-    <nav className="border-b border-purple-300/5 shadow-[0_4px_20px_-10px] shadow-purple-200/30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Desktop */}
-        <div className="flex items-center justify-between h-20">
-          <Link href={"/"} className="text-2xl font-bold text-white">
-            PDF Analyzer AI
-          </Link>
+    <nav className="relative z-50 border-b border-line bg-surface dark:bg-paper">
+      <div className="flex h-[60px] items-center justify-between px-5 md:h-[76px] md:px-8 lg:px-10">
+        <Logo />
 
-          <div className="hidden md:flex items-center space-x-4">
+        {/* Desktop */}
+        <div className="hidden items-center gap-7 md:flex">
+          {LINKS.map((link) => (
             <Link
-              href={"/dashboard"}
-              className="text-white/70 hover:text-white px-4 py-2 transition-all duration-300 hover:shadow-[0_2px_8px_0] hover:shadow-purple-400/40 hover:rounded-md"
+              key={link.href}
+              href={link.href}
+              className={`t-ui transition-colors ${
+                isActive(link.href)
+                  ? "font-medium text-ink"
+                  : "text-subtle hover:text-ink"
+              }`}
             >
-              Dashboard
+              {link.label}
             </Link>
+          ))}
+
+          <Show when="signed-in">
             <Link
-              href={"/pricing"}
-              className="text-white/70 hover:text-white px-4 py-2 transition-all duration-300 hover:shadow-[0_2px_8px_0] hover:shadow-purple-400/40 hover:rounded-md"
+              href="/account"
+              className={`t-ui transition-colors ${
+                isActive("/account")
+                  ? "font-medium text-ink"
+                  : "text-subtle hover:text-ink"
+              }`}
             >
-              Pricing
+              Account
             </Link>
-          </div>
+          </Show>
+
+          <ThemeToggle />
+
           <Show when="signed-in">
             <SignOutButton>
-              <button className="text-white/70 hover:text-white px-4 py-2 transition-all duration-300 hover:shadow-[0_2px_8px_0] hover:shadow-purple-400/40 hover:rounded-md">
-                Sign Out
+              <button type="button" className="btn btn-quiet t-ui">
+                Sign out
               </button>
             </SignOutButton>
           </Show>
 
           <Show when="signed-out">
-            <div className="flex items-center">
-              <SignInButton>
-                <Link
-                  href={"/sign-in"}
-                  className="group relative inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-white transition-all hover:bg-white/5"
-                >
-                  <span className="absolute inset-0 rounded-full bg-gradient-to-r from-[#FF1E56] via-[#FF00FF] to-[#00FFFF] opacity-70 blur-sm transition-all group-hover:opacity-100"></span>
-                  <span className="absolute inset-0.5 rounded-full bg-black/50"></span>
-                  <span className="relative font-medium">Sign In</span>
-                </Link>
-              </SignInButton>
-            </div>
+            <Link href="/sign-in" className="btn btn-signal px-[18px] py-[9px] text-[14px]">
+              Sign in
+            </Link>
           </Show>
-
-          {/* Mobile Menu Button */}
-          <div className="md:hidden z-50">
-            <button onClick={toggleMenu} className="p-2 cursor-pointer">
-              {isOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
-            </button>
-          </div>
         </div>
-        {/* Mobile */}
-        <div className="md:hidden fixed inset-0 z-40">
-          <div
-            className={`absolute inset-0 backdrop-blur-xl transition-opacity duration-300 ${
-              isOpen ? "opacity-100" : "opacity-0"
-            }`}
-            onClick={closeMenu}
-          ></div>
-          <div
-            className={`absolute top-16 left-0 right-0 border-b border-purple-300/5 shadow-lg transition-all duration-300 ease-in-out ${
-              isOpen
-                ? "translate-y-0 opacity-100"
-                : "translate-y-full opacity-0"
-            }`}
-          >
-            <div className="flex flex-col space-y-4 text-center">
-              <Link
-                href={"/dashboard"}
-                className="text-white/70 hover:text-white px-4 py-2 transition-all duration-300 hover:shadow-[0_2px_8px_0] hover:shadow-purple-400/40 hover:rounded-md"
-              >
-                Dashboard
-              </Link>
-              <Link
-                href={"/pricing"}
-                className="text-white/70 hover:text-white px-4 py-2 transition-all duration-300 hover:shadow-[0_2px_8px_0] hover:shadow-purple-400/40 hover:rounded-md"
-              >
-                Pricing
-              </Link>
 
-              <div className="max-w-lg mx-auto mt-2 mb-6">
-                <Show when="signed-in">
-                  <SignOutButton>
-                    <button className="text-white/70 hover:text-white px-4 py-2 transition-all duration-300 hover:shadow-[0_2px_8px_0] hover:shadow-purple-400/40 hover:rounded-md">
-                      Sign Out
-                    </button>
-                  </SignOutButton>
-                </Show>
+        {/* Mobile trigger — two rules, per the design; no icon set involved. */}
+        <button
+          type="button"
+          onClick={() => setOpen((open) => !open)}
+          aria-expanded={isOpen}
+          aria-label={isOpen ? "Close menu" : "Open menu"}
+          className="relative flex h-11 w-11 flex-col items-center justify-center gap-[5px] md:hidden"
+        >
+          <span
+            className={`h-[1.5px] w-5 bg-ink transition-transform duration-150 ${
+              isOpen ? "translate-y-[3.25px] rotate-45" : ""
+            }`}
+          />
+          <span
+            className={`h-[1.5px] w-5 bg-ink transition-transform duration-150 ${
+              isOpen ? "-translate-y-[3.25px] -rotate-45" : ""
+            }`}
+          />
+        </button>
+      </div>
 
-                <Show when="signed-out">
-                  <div className="flex items-center">
-                    <SignInButton>
-                      <Link
-                        href={"/sign-in"}
-                        className="group relative inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-white transition-all hover:bg-white/5"
-                      >
-                        <span className="absolute inset-0 rounded-full bg-gradient-to-r from-[#FF1E56] via-[#FF00FF] to-[#00FFFF] opacity-70 blur-sm transition-all group-hover:opacity-100"></span>
-                        <span className="absolute inset-0.5 rounded-full bg-black/50"></span>
-                        <span className="relative font-medium">Sign In</span>
-                      </Link>
-                    </SignInButton>
-                  </div>
-                </Show>
-              </div>
+      {/* Mobile menu — full-screen list */}
+      {isOpen && (
+        <div className="fixed inset-x-0 top-[60px] bottom-0 z-40 overflow-y-auto bg-paper md:hidden">
+          <div className="flex flex-col">
+            {LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className="border-b border-line px-5 py-5 text-[22px] font-semibold tracking-[-0.02em]"
+              >
+                {link.label}
+              </Link>
+            ))}
+
+            <Show when="signed-in">
+              <Link
+                href="/account"
+                onClick={() => setOpen(false)}
+                className="border-b border-line px-5 py-5 text-[22px] font-semibold tracking-[-0.02em]"
+              >
+                Account
+              </Link>
+            </Show>
+
+            <div className="flex items-center justify-between border-b border-line px-5 py-5">
+              <span className="t-body text-subtle">Appearance</span>
+              <ThemeToggle />
+            </div>
+
+            <div className="flex flex-col gap-2.5 px-5 py-6">
+              <Show when="signed-in">
+                <SignOutButton>
+                  <button
+                    type="button"
+                    className="btn btn-outline w-full py-4 text-[16px]"
+                  >
+                    Sign out
+                  </button>
+                </SignOutButton>
+              </Show>
+
+              <Show when="signed-out">
+                <Link
+                  href="/sign-in"
+                  onClick={() => setOpen(false)}
+                  className="btn btn-signal w-full py-4 text-[16px]"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/sign-up"
+                  onClick={() => setOpen(false)}
+                  className="btn btn-outline w-full py-4 text-[16px]"
+                >
+                  Create account
+                </Link>
+              </Show>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </nav>
   );
 };

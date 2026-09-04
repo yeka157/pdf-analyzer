@@ -1,22 +1,27 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Instrument_Sans, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import ThemeProvider from "@/components/theme/ThemeProvider";
 import { ClerkProvider } from "@clerk/nextjs";
+import { clerkAppearance, clerkLocalization } from "@/lib/clerkAppearance";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const instrumentSans = Instrument_Sans({
+  variable: "--font-instrument-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
-  title: "PDF AI Analyzer",
-  description: "Use AI to Analyze and Summarize your PDF ",
+  title: "Digest",
+  description:
+    "Upload a document and read a summary you can finish in a minute.",
 };
 
 export default function RootLayout({
@@ -25,14 +30,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    // next-themes writes the theme class on <html> before paint, which React
+    // cannot know about during hydration.
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${instrumentSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ClerkProvider>
-          <Navbar />
-          {children}
-        </ClerkProvider>
+        <ThemeProvider>
+          <ClerkProvider
+            appearance={clerkAppearance}
+            localization={clerkLocalization}
+          >
+            <Navbar />
+            {children}
+          </ClerkProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -6,7 +6,12 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { checkAuthenticationAndSubscription } from "@/lib/checkAuthSubscription";
-import GlowingButton from "@/components/LandingPage/GlowingButton";
+
+const BENEFITS = [
+  "Unlimited documents",
+  "Full summaries and key terms",
+  "Priority support",
+];
 
 function getDomainUrl() {
   const domainUrl =
@@ -136,79 +141,71 @@ const Pricing = async () => {
   };
 
   const backLink = authCheck.isAuthenticated ? "/dashboard" : "/";
+
   return (
-    <div className="py-16 px-4">
-      <div className="max-w-4xl mx-auto">
-        <Link
-          className="text-white/70 hover:text-white inline-flex items-center mb-8 transition-all duration-300 hover:shadow-[0_2px_8px_0] hover:shadow-purple-400/40 hover:rounded-md px-4 py-2"
-          href={backLink}
-        >
+    <div className="px-5 py-8 md:px-10 md:py-12">
+      <div className="mx-auto flex max-w-[608px] flex-col gap-6">
+        <Link href={backLink} className="btn btn-quiet t-small self-start">
           &larr; Back
         </Link>
-        <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl mb-12 bg-clip-text text-transparent bg-gradient-to-r from-white to-purple-200">
-          Subscription Plan
-        </h1>
 
-        <div className="rounded-xl border border-purple-300/10 bg-black/30 shadow-[0_8px_30px_-12px] shadow-purple-500/20 p-8 backdrop-blur-sm">
-          <div className="space-y-6">
-            <h2 className="text-3xl font-semibold tracking-tight border-b border-purple-300/20 pb-4">
-              Full Access
-            </h2>
-            <div className="space-y-4">
-              <p className="text-white/80 text-lg">Access to all features</p>
-              <p className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-purple-200">
-                $5.99/month
-              </p>
-              <ul className="space-y-2 text-white/70 py-4">
-                <li className="flex items-center">
-                  <span className="mr-2">✅</span> Unlimited PDF processing
-                </li>
-                <li className="flex items-center">
-                  <span className="mr-2">✅</span> Advanced AI Analysis
-                </li>
-                <li className="flex items-center">
-                  <span className="mr-2">✅</span> Priority support
-                </li>
-              </ul>
-
-              <div className="pt-4">
-                {authCheck.isAuthenticated ? (
-                  isSubscribed ? (
-                    <form action={createCustomerPortal}>
-                      <button
-                        type="submit"
-                        className="group relative inline-flex w-full justify-center items-center gap-2 rounded-full bg-black px-6 py-3 text-white transition-all hover:bg-white/5"
-                      >
-                        <span className="absolute inset-0 rounded-full bg-gradient-to-r from-[#FF1E56] via-[#FF00FF] to-[#00FFFF] opacity-70 blur-sm transition-all group-hover:opacity-100" />
-                        <span className="absolute inset-0.5 rounded-full bg-black/50" />
-                        <span className="relative font-medium">
-                          Manage Subscription
-                        </span>
-                      </button>
-                    </form>
-                  ) : (
-                    <form action={createSubscription}>
-                      <button
-                        type="submit"
-                        className="group relative inline-flex w-full justify-center items-center gap-2 rounded-full bg-black px-6 py-3 text-white transition-all hover:bg-white/5"
-                      >
-                        <span className="absolute inset-0 rounded-full bg-gradient-to-r from-[#FF1E56] via-[#FF00FF] to-[#00FFFF] opacity-70 blur-sm transition-all group-hover:opacity-100" />
-                        <span className="absolute inset-0.5 rounded-full bg-black/50" />
-                        <span className="relative font-medium">
-                          Subscribe Now
-                        </span>
-                      </button>
-                    </form>
-                  )
-                ) : (
-                  <GlowingButton
-                    text="Sign In to Subscribe"
-                    href="/sign-in?redirect_url=/pricing"
-                  />
-                )}
-              </div>
-            </div>
+        <div className="invert-panel flex flex-col gap-5 px-5 py-7 md:gap-7 md:p-10">
+          <div className="flex flex-col gap-2 md:gap-2.5">
+            <h1 className="t-page">One plan</h1>
+            <p className="t-body text-subtle">
+              Everything included. Cancel whenever.
+            </p>
           </div>
+
+          <div className="flex items-baseline gap-2 md:gap-2.5">
+            <span className="text-[44px] leading-none font-semibold tracking-[-0.04em] md:text-[56px]">
+              $5.99
+            </span>
+            <span className="font-mono text-[11px] text-subtle md:text-[12px]">
+              / month
+            </span>
+          </div>
+
+          {/* 1px background gaps rather than rules: the panel shows through. */}
+          <div className="flex flex-col gap-px bg-line">
+            {BENEFITS.map((benefit) => (
+              <div
+                key={benefit}
+                className="bg-paper py-3.5 text-[15px] md:text-[16px]"
+              >
+                {benefit}
+              </div>
+            ))}
+          </div>
+
+          {authCheck.isAuthenticated ? (
+            isSubscribed ? (
+              <form action={createCustomerPortal}>
+                <button
+                  type="submit"
+                  className="btn btn-signal w-full py-4 text-[16px] md:text-[15px]"
+                >
+                  Manage subscription
+                </button>
+              </form>
+            ) : (
+              <form action={createSubscription}>
+                <button
+                  type="submit"
+                  className="btn btn-signal w-full py-4 text-[16px] md:text-[15px]"
+                >
+                  Subscribe
+                </button>
+              </form>
+            )
+          ) : (
+            <Link
+              href="/sign-in?redirect_url=/pricing"
+              className="btn btn-signal w-full py-4 text-[16px] md:text-[15px]"
+            >
+              Sign in to subscribe
+            </Link>
+          )}
         </div>
       </div>
     </div>

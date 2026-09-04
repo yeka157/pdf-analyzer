@@ -1,62 +1,95 @@
-"use client";
+import Link from "next/link";
 
-import { FileText, Search, Zap } from "lucide-react";
-import GlowingButton from "./GlowingButton";
-
-const rings = [
-  { width: 300, opacity: 0.7 },
-  { width: 500, opacity: 0.5 },
-  { width: 700, opacity: 0.4 },
-  { width: 900, opacity: 0.3 },
-  { width: 1200, opacity: 0.2 },
+const FEATURES = [
+  { title: "Summaries", body: "The whole document in a few paragraphs." },
+  { title: "Key terms", body: "Dates, amounts and names pulled out." },
+  { title: "Any length", body: "Two pages or two hundred." },
 ];
 
-const icons = [
-  { icon: FileText, desc: "Analyze PDF" },
-  { icon: Search, desc: "Extract Key Insights" },
-  { icon: Zap, desc: "Save time" },
+const KEY_TERMS = [
+  { label: "Term", value: "12 months" },
+  { label: "Payment", value: "Net 30" },
+  { label: "Late fee", value: "1.5% monthly" },
+  { label: "Cure", value: "15 days" },
 ];
 
 const Hero = () => {
   return (
-    <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center">
-      <div className="absolute inset-0 flex justify-center items-center z-0">
-        {rings.map((ring, index) => (
-          <div
-            key={index}
-            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 
-                rounded-full border border-purple-300/20 shadow-[0_0_150px_inset] shadow-purple-200/10`}
-            style={{
-              width: `${ring.width}px`,
-              height: `${ring.width}px`,
-              opacity: ring.opacity,
-            }}
-          ></div>
-        ))}
-      </div>
+    <>
+      <div className="grid grid-cols-1 items-center gap-10 px-5 pt-11 pb-10 md:grid-cols-2 md:gap-16 md:px-10 md:pt-26 md:pb-24">
+        <div className="flex flex-col gap-5 md:gap-7">
+          <h1 className="t-display">The short version of any PDF.</h1>
+          <p className="t-body-lg max-w-[400px] text-subtle">
+            Upload a document and read a summary you can finish in a minute.
+          </p>
+          <div className="mt-1 flex flex-col gap-2.5 md:flex-row md:items-center md:gap-3">
+            <Link
+              href="/dashboard"
+              className="btn btn-signal px-5 py-4 text-[16px] md:px-[26px] md:py-[15px] md:text-[15px]"
+            >
+              Upload a PDF
+            </Link>
+            <Link
+              href="/pricing"
+              className="btn btn-outline px-5 py-4 text-[16px] md:px-5 md:py-[15px] md:text-[15px]"
+            >
+              See pricing
+            </Link>
+          </div>
+        </div>
 
-      <div className="z-10 text-center px-4">
-        <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-purple-200">
-          PDF Analyzer AI Tool
-        </h1>
-        <p className="text-lg md:text-xl text-white/70 mb-10 max-w-3xl mx-auto">
-          Extract insights from your documents with our AI-powered analysis tool
-        </p>
-
-        <GlowingButton text="Get Started" href="/pricing" />
-      </div>
-
-      <div className="flex flex-wrap justify-center gap-8 mt-16 z-10 px-4">
-        {icons.map((icon, index) => (
-          <div key={index} className="flex flex-col items-center max-w-[200px]">
-            <div className="w-12 h-12 rounded-full bg-purple-400/10 flex items-center justify-center mb-3">
-              <icon.icon className="text-purple-200 w-6 h-6" />
+        {/*
+          The right-hand panel is a real summary rather than a decorative
+          graphic: it is the product's output, shown at rest.
+        */}
+        <div className="border border-line-strong bg-surface">
+          <div className="t-meta flex items-center justify-between border-b border-line-strong px-4 py-3.5 text-meta md:px-5 md:py-4">
+            <span>lease-agreement.pdf</span>
+            <span className="text-signal">summary ready</span>
+          </div>
+          <div className="flex flex-col gap-3.5 px-4 py-4.5 md:px-5 md:py-6">
+            <p className="text-[14px] leading-[1.7] md:text-[15px]">
+              Twelve-month term from the effective date. Renews automatically
+              unless either party gives notice thirty days prior.
+            </p>
+            <div className="h-px bg-line-strong" />
+            <div className="grid grid-cols-2 gap-3">
+              {KEY_TERMS.map((term) => (
+                <div key={term.label}>
+                  <div className="t-label mb-[5px] text-[11px] text-meta">
+                    {term.label}
+                  </div>
+                  <div className="font-mono text-[11px]">{term.value}</div>
+                </div>
+              ))}
             </div>
-            <p className="text-white/80 text-center text-sm ">{icon.desc}</p>
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="features"
+        className="grid scroll-mt-20 grid-cols-1 border-t border-line md:grid-cols-3"
+      >
+        {FEATURES.map((feature, index) => (
+          <div
+            key={feature.title}
+            className={`flex flex-col gap-1 px-5 py-5.5 md:gap-2 md:px-10 md:py-9 ${
+              index < FEATURES.length - 1
+                ? "border-b border-line md:border-r md:border-b-0"
+                : ""
+            }`}
+          >
+            <div className="t-sub text-[18px] md:text-[20px]">
+              {feature.title}
+            </div>
+            <div className="text-[14px] leading-[1.6] text-subtle md:text-[15px]">
+              {feature.body}
+            </div>
           </div>
         ))}
       </div>
-    </div>
+    </>
   );
 };
 
