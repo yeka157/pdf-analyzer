@@ -1,21 +1,35 @@
 "use client";
 
-import { extractTextFromPDF } from "@/lib/pdfUtils";
-// import { useUser } from "@clerk/nextjs";
-import { AlertCircle, CheckCircle, FileText } from "lucide-react";
+import { extractTextFromPDF, validatePdfFile } from "@/lib/pdfUtils";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import Notice from "@/components/Notice";
+import Dropzone from "./Dropzone";
+import EmptyState from "./EmptyState";
+import ProcessingCard from "./ProcessingCard";
+import ReadFailedCard from "./ReadFailedCard";
+import RecentList from "./RecentList";
+import SummaryCard from "./SummaryCard";
+import {
+  formatAdded,
+  formatPages,
+  STATUS_LABEL,
+  type DigestDocument,
+} from "./types";
 
 const DashboardContent = () => {
-  //   const { user, isLoaded } = useUser();
-
   const router = useRouter();
   const searchParams = useSearchParams();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllersRef = useRef(new Map<string, AbortController>());
+  const cancelledDocumentIdsRef = useRef(new Set<string>());
 
-  const [selectedFile, setSelectedFile] = useState<File | null>();
-  const [summary, setSummary] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [documents, setDocuments] = useState<DigestDocument[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [validationError, setValidationError] = useState("");
+
   // Derive the initial banner state from the URL rather than setting it inside
   // an effect, which would trigger a second render pass on every mount.
   const [showPayments, setShowPayments] = useState(
@@ -34,167 +48,263 @@ const DashboardContent = () => {
     return () => clearTimeout(timer);
   }, [showPayments, router]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setError("");
-    if (!e.target.files?.[0]) return;
+  const selected =
+    documents.find((document) => document.id === selectedId) ??
+    documents[0] ??
+    null;
+  const isBusy = documents.some((doc) => doc.status === "reading");
 
-    setSelectedFile(e.target.files[0]);
-  };
+  const updateDocument = useCallback(
+    (id: string, patch: Partial<DigestDocument>) => {
+      setDocuments((previous) =>
+        previous.map((doc) => (doc.id === id ? { ...doc, ...patch } : doc))
+      );
+    },
+    []
+  );
 
-  // handleAnalyze function
-  const handleAnalyze = useCallback(async () => {
-    if (!selectedFile) {
-      setError("Please select a file before analyzing.");
+  const openPicker = useCallback(() => fileInputRef.current?.click(), []);
+
+  const stopDocumentWork = useCallback((id: string) => {
+    cancelledDocumentIdsRef.current.add(id);
+    abortControllersRef.current.get(id)?.abort();
+    abortControllersRef.current.delete(id);
+  }, []);
+
+  const removeDocument = useCallback((id: string) => {
+    stopDocumentWork(id);
+    setDocuments((previous) => previous.filter((document) => document.id !== id));
+    setSelectedId((previous) => (previous === id ? null : previous));
+  }, [stopDocumentWork]);
+
+  const clearDocuments = useCallback(() => {
+    setDocuments((previous) => {
+      previous.forEach((document) => stopDocumentWork(document.id));
+      return [];
+    });
+    setSelectedId(null);
+  }, [stopDocumentWork]);
+
+  const selectFile = useCallback((file: File) => {
+    setValidationError("");
+
+    const error = validatePdfFile(file);
+    if (error) {
+      setPendingFile(null);
+      setValidationError(error);
       return;
     }
 
-    setIsLoading(true);
-    setError("");
-    setSummary("");
+    setPendingFile(file);
+  }, []);
 
-    try {
-      // extract text from pdf
-      const text = await extractTextFromPDF(selectedFile);
+  const runSummary = useCallback(
+    async (file: File, retryId?: string) => {
+      setValidationError("");
+      setPendingFile(null);
 
-      const response = await fetch("/api/analyze", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ text: text.substring(0, 10000) }),
-      });
+      const id = retryId ?? crypto.randomUUID();
+      cancelledDocumentIdsRef.current.delete(id);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error || `HTTP error! status: ${response.status}`
-        );
+      const wasCancelled = () => cancelledDocumentIdsRef.current.has(id);
+
+      if (retryId) {
+        updateDocument(id, {
+          status: "reading",
+          error: undefined,
+          canRetry: false,
+        });
+      } else {
+        setDocuments((previous) => [
+          {
+            id,
+            file,
+            name: file.name,
+            pageCount: 0,
+            addedAt: Date.now(),
+            status: "reading",
+            summary: [],
+            keyTerms: [],
+            canRetry: false,
+          },
+          ...previous,
+        ]);
       }
+      setSelectedId(id);
 
-      const data = await response.json();
+      let analysisStarted = false;
 
-      setSummary(data.summary || "No summary was generated");
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to analyze PDF"
-      );
-    } finally {
-      setIsLoading(false);
+      try {
+        const { text, pageCount } = await extractTextFromPDF(file);
+        if (wasCancelled()) return;
+        updateDocument(id, { pageCount });
+
+        // A PDF of scanned images extracts cleanly and yields nothing. That is
+        // a readable failure, not a server error, so it is caught here.
+        if (text.trim() === "") {
+          updateDocument(id, {
+            status: "failed",
+            error:
+              "The PDF has no selectable text. Scanned pages are not supported yet.",
+            canRetry: false,
+          });
+          return;
+        }
+
+        analysisStarted = true;
+        const abortController = new AbortController();
+        abortControllersRef.current.set(id, abortController);
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({ text: text.substring(0, 10000) }),
+          signal: abortController.signal,
+        });
+
+        if (wasCancelled()) return;
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.error || `HTTP error! status: ${response.status}`
+          );
+        }
+
+        const data = await response.json();
+        if (wasCancelled()) return;
+
+        updateDocument(id, {
+          status: "done",
+          summary: Array.isArray(data.summary) ? data.summary : [],
+          keyTerms: Array.isArray(data.keyTerms) ? data.keyTerms : [],
+          canRetry: false,
+        });
+      } catch (error) {
+        if (wasCancelled()) return;
+
+        updateDocument(id, {
+          status: "failed",
+          error:
+            error instanceof Error ? error.message : "Failed to analyze PDF",
+          canRetry: analysisStarted,
+        });
+      } finally {
+        abortControllersRef.current.delete(id);
+      }
+    },
+    [updateDocument]
+  );
+
+  const handleRun = () => {
+    if (!pendingFile) {
+      setValidationError("Choose a file before running a summary.");
+      return;
     }
-  }, [selectedFile]);
 
-  // format summary content
-  const formatSummaryContent = (text: string) => {
-    const paragraphs = text.split("\n").filter((p) => p.trim() !== "");
-
-    return paragraphs.map((paragraph, index) => {
-      if (paragraph.startsWith("# ")) {
-        return (
-          <h2
-            key={index}
-            className="text-2xl font-bold mt-6 mb-4 bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent"
-          >
-            {paragraph.replace(/^# /, "")}
-          </h2>
-        );
-      }
-
-      if (paragraph.startsWith("## ")) {
-        return (
-          <h3
-            key={index}
-            className="text-xl font-semibold mt-6 mb-3 text-purple-300 border-b border-purple-500/20 pb-2"
-          >
-            {paragraph.replace(/^## /, "")}
-          </h3>
-        );
-      }
-
-      return (
-        <p
-          key={index}
-          className="mb-4 text-gray-300 leading-relaxed hover:text-white transition-colors first-letter:text-lg first-letter:font-medium"
-        >
-          {paragraph}
-        </p>
-      );
-    });
+    void runSummary(pendingFile);
   };
 
   return (
-    <div className="space-y-10 mt-24 max-w-4xl mx-auto">
-      {showPayments && (
-        <div className="bg-green-500/10 max-w-xl mx-auto my-8 border border-green-500/20 rounded-xl p-4 text-green-400">
-          <div className="flex items-center justify-center">
-            <CheckCircle className="h-5 w-5 mr-2" />
-            <p>Payment successfull! Your subscription is now active!</p>
-          </div>
-        </div>
-      )}
+    <div className="grid grid-cols-1 md:min-h-[calc(100vh-76px)] md:grid-cols-[296px_1fr]">
+      <aside className="flex flex-col gap-5 px-5 py-6 md:gap-6 md:border-r md:border-line md:bg-surface md:p-6">
+        <h1 className="t-page md:hidden">Documents</h1>
 
-      <div className="p-10 space-y-8 rounded-2xl border border-purple-300/10 bg-black/30 shadow-[0_4px_20px_-10px] shadow-purple-200/30">
-        <div className="relative">
-          <div className="my-2 ml-2 flex items-center text-xs text-gray-500">
-            <FileText className="h-3.5 w-3.5 mr-1.5" />
-            <span>Supported Format: PDF</span>
-          </div>
-          <div className="border border-gray-700 rounded-xl p-1 bg-black/40 hover:bg-purple-200/20 transition-colors">
-            <input
-              type="file"
-              onChange={handleFileChange}
-              accept=".pdf"
-              className="block w-full text-gray-300 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-sm 
-              file:font-medium file:bg-purple-200/20 file:text-purple-200 hover:file:bg-purple-200/20 
-              transition-all focus:outline-none cursor-pointer"
-            />
-          </div>
-        </div>
+        <Dropzone onFile={selectFile} onBrowse={openPicker} disabled={isBusy} />
 
-        <button
-          disabled={!selectedFile || isLoading}
-          className="group relative inline-flex items-center justify-center w-full gap-2 rounded-xl bg-black px-4 py-4 text-white 
-          transition-all hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={handleAnalyze}
-        >
-          <span
-            className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#FF1E56] via-[#FF00FF] to-[#00FFFF] 
-          opacity-70 blur-sm transition-all group-hover:opacity-100 disabled:opacity-40"
+        {pendingFile && (
+          <div className="flex flex-col gap-3 border border-line bg-surface p-3.5 md:bg-surface-2">
+            <div className="flex flex-col gap-1">
+              <span className="t-label-sm text-meta">Selected</span>
+              <span className="truncate text-[14px] font-medium">
+                {pendingFile.name}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleRun}
+              disabled={isBusy}
+              className="btn btn-signal w-full py-3 text-[15px]"
+            >
+              {isBusy ? "Reading…" : "Run summary"}
+            </button>
+          </div>
+        )}
+
+        <RecentList
+          documents={documents}
+          selectedId={selected?.id ?? null}
+          onSelect={setSelectedId}
+          onRemove={removeDocument}
+          onClear={clearDocuments}
+        />
+      </aside>
+
+      <main className="flex flex-col gap-5 px-5 py-6 md:gap-7 md:p-10">
+        {showPayments && <Notice tone="success">Your plan is active.</Notice>}
+        {validationError && <Notice tone="error">{validationError}</Notice>}
+
+        {!selected && <EmptyState onUpload={openPicker} />}
+
+        {selected?.status === "reading" && (
+          <ProcessingCard
+            name={selected.name}
+            pageCount={selected.pageCount}
+            onCancel={() => removeDocument(selected.id)}
           />
-          <span className="absolute inset-0 rounded-xl bg-black/50" />
-          <span className="relative font-medium">
-            {isLoading ? "Processing..." : "Analyze Document"}
-          </span>
-        </button>
-      </div>
+        )}
 
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400">
-          <div className="flex items-start">
-            <AlertCircle className="h-5 w-5 mr-2 mt-0.5" />
-            <div>
-              <p className="font-medium mb-1">Error analyzing document</p>
-              <p>{error}</p>
+        {selected?.status === "failed" && (
+          <ReadFailedCard
+            message={selected.error ?? "The document could not be read."}
+            canRetry={selected.canRetry}
+            onRetry={() => void runSummary(selected.file, selected.id)}
+            onChooseAnother={openPicker}
+          />
+        )}
+
+        {selected?.status === "done" && (
+          <>
+            <div className="flex items-end justify-between gap-6">
+              <div className="flex flex-col gap-2 overflow-hidden">
+                <div className="t-page truncate">{selected.name}</div>
+                <div className="t-meta text-meta">
+                  {selected.pageCount > 0 ? `${formatPages(selected.pageCount)} · ` : ""}
+                  {formatAdded(selected.addedAt)}
+                </div>
+              </div>
+              <span className="pill shrink-0">
+                {STATUS_LABEL[selected.status]}
+              </span>
             </div>
-          </div>
-        </div>
-      )}
 
-      {summary && (
-        <div className="bg-black/20 shadow-[0_4px_20px_-10px] shadow-purple-200/30 rounded-2xl p-8">
-          {/* Header */}
-          <div className="flex items-center mb-6">
-            <div className="mr-3 p-2 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20">
-              <FileText className="h-6 w-6 text-purple-400" />
-            </div>
-          </div>
+            <SummaryCard
+              summary={selected.summary}
+              keyTerms={selected.keyTerms}
+            />
+          </>
+        )}
+      </main>
 
-          {/* Formatted Summary Content */}
-          <div className="max-w-none px-6 py-5 rounded-xl bg-[#0f0f13] border border-[#0f0f13]">
-            {formatSummaryContent(summary)}
-          </div>
-        </div>
-      )}
+      {/*
+        `hidden` rather than sr-only: the labelled "Choose file" button is the
+        control, and an sr-only input duplicates it for screen readers.
+      */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        aria-label="Upload PDF"
+        accept="application/pdf,.pdf"
+        hidden
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) selectFile(file);
+          // Allow re-picking the same file after a failed read.
+          event.target.value = "";
+        }}
+      />
     </div>
   );
 };

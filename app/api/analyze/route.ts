@@ -4,6 +4,59 @@ import { ApiError, handleApiError } from "@/lib/errors";
 import { rateLimiter } from "@/lib/rateLimiters";
 import { NextRequest, NextResponse } from "next/server";
 
+export type KeyTerm = { label: string; value: string };
+
+export type AnalyzeResponse = {
+  summary: string[];
+  keyTerms: KeyTerm[];
+};
+
+const PROMPT = `Summarise this document for someone who will not read it.
+
+Write two to four short paragraphs of plain prose. No headings, no bullet
+points, no markdown, no preamble — start with the substance. Keep the tone
+factual and concrete: what the document is, what it says, and what follows from
+it. Prefer specifics (dates, amounts, obligations, findings) over description of
+the document itself.
+
+Then pull out up to four key terms: the concrete values a reader would want at a
+glance — durations, amounts, deadlines, rates, named parties. Each label is one
+or two words; each value is a short fragment, not a sentence. If the document
+has fewer than four such values, return only the ones it actually has.
+
+Document content:
+`;
+
+/**
+ * Asking Gemini for JSON against a schema, rather than parsing headings back
+ * out of prose, is what makes the key-terms grid real data instead of a
+ * decoration. The summary comes back pre-split into paragraphs for the same
+ * reason.
+ */
+const RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    summary: {
+      type: "ARRAY",
+      description: "Two to four paragraphs of plain prose.",
+      items: { type: "STRING" },
+    },
+    keyTerms: {
+      type: "ARRAY",
+      description: "Up to four label/value pairs.",
+      items: {
+        type: "OBJECT",
+        properties: {
+          label: { type: "STRING" },
+          value: { type: "STRING" },
+        },
+        required: ["label", "value"],
+      },
+    },
+  },
+  required: ["summary", "keyTerms"],
+};
+
 export async function POST(request: NextRequest) {
   try {
     await rateLimiter(request);
@@ -44,44 +97,18 @@ export async function POST(request: NextRequest) {
         headers: {
           "Content-Type": "application/json",
         },
+        signal: request.signal,
         body: JSON.stringify({
           contents: [
             {
-              parts: [
-                {
-                  text: `Please analyze this document and provide an elegant, narrative summary with the following format:
-                    
-                    # Document Overview
-                    Write a concise 2 sentences overview that captures the essence of the document.
-                    Focus on the main subject, purpose, and scope.
-
-                    ## Main Insights
-                    Provide 1 well-crafted paragraph, max 3 sentences, that explain the key arguments or findings from the document.
-                    Use clear, engaging language and focus on the most important information.
-                    Avoid bullet points nad instead create a flowing narrative.
-
-                    ## Critical Analysis
-                    In 1 paragraph, max 3 sentences, analyze the document's methodology, approach, or perspective.
-                    Discuss any notable strengths, limitations, or unique aspects.
-                    Include relevant data or quotes if they enhance understanding.
-
-                    ## Conclusion
-                    Write a thoughtful concluding paragraph that summarizes the document's significance and main takeaways.
-                    What should the reader remember from this document? Max 2 sentences
-
-                    Format the response with clear headings and well-structured paragraphs.
-                    Use professional, concise language throughout.
-
-                    Document content:
-                    ${processedText}
-                    `,
-                },
-              ],
+              parts: [{ text: `${PROMPT}${processedText}` }],
             },
           ],
           generationConfig: {
-            temperature: 0.7,
+            temperature: 0.4,
             maxOutputTokens: 1024,
+            responseMimeType: "application/json",
+            responseSchema: RESPONSE_SCHEMA,
           },
         }),
       }
@@ -99,14 +126,45 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-    if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+    if (!raw) {
       throw new ApiError(500, "Invalid response from AI service");
     }
 
-    return NextResponse.json({
-      summary: data.candidates[0].content.parts[0].text,
-    });
+    let parsed: Partial<AnalyzeResponse>;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new ApiError(500, "Invalid response from AI service");
+    }
+
+    const summary = Array.isArray(parsed.summary)
+      ? parsed.summary.filter(
+          (paragraph): paragraph is string =>
+            typeof paragraph === "string" && paragraph.trim() !== ""
+        )
+      : [];
+
+    if (summary.length === 0) {
+      throw new ApiError(500, "No summary was generated");
+    }
+
+    // The schema constrains the shape but not the count; the grid is a 4-up.
+    const keyTerms = Array.isArray(parsed.keyTerms)
+      ? parsed.keyTerms
+          .filter(
+            (term): term is KeyTerm =>
+              !!term &&
+              typeof term.label === "string" &&
+              typeof term.value === "string" &&
+              term.label.trim() !== "" &&
+              term.value.trim() !== ""
+          )
+          .slice(0, 4)
+      : [];
+
+    return NextResponse.json({ summary, keyTerms } satisfies AnalyzeResponse);
   } catch (error) {
     return handleApiError(error);
   }

@@ -3,6 +3,36 @@ import type { TextContent } from "pdfjs-dist/types/src/display/api";
 
 let workerConfigured = false;
 
+export type ExtractedPdf = {
+  text: string;
+  pageCount: number;
+};
+
+type PdfFileMetadata = Pick<File, "name" | "type" | "size">;
+
+export const validatePdfFile = (file: PdfFileMetadata) => {
+  const hasPdfMimeType = file.type === "application/pdf";
+  const hasPdfExtension = file.name.toLowerCase().endsWith(".pdf");
+
+  if (!hasPdfMimeType && !hasPdfExtension) {
+    return "Choose a PDF file to summarize.";
+  }
+
+  if (file.size > PDF_PROCESSING.MAX_FILE_SIZE_BYTES) {
+    return "Choose a PDF that is 10 MB or smaller.";
+  }
+
+  return null;
+};
+
+export const assertPageLimit = (pageCount: number) => {
+  if (pageCount > PDF_PROCESSING.MAX_PAGES) {
+    throw new Error(
+      `This PDF has ${pageCount} pages. The limit is ${PDF_PROCESSING.MAX_PAGES} pages.`
+    );
+  }
+};
+
 /**
  * pdfjs-dist 6 touches browser-only globals (DOMMatrix) at module scope, so it
  * cannot be imported at the top level — client components are still evaluated
@@ -19,7 +49,9 @@ async function loadPdfjs() {
   return pdfjs;
 }
 
-export const extractTextFromPDF = async (file: File): Promise<string> => {
+export const extractTextFromPDF = async (
+  file: File
+): Promise<ExtractedPdf> => {
   try {
     const { getDocument } = await loadPdfjs();
     const arrayBuffer = await file.arrayBuffer();
@@ -32,7 +64,7 @@ export const extractTextFromPDF = async (file: File): Promise<string> => {
     const pdf = await loadingTask.promise;
 
     const numPages = pdf.numPages;
-    let text = "";
+    assertPageLimit(numPages);
     const pagePromise = Array.from({ length: numPages }, (_, i) => i + 1).map(
       async (pageNum) => {
         const page = await pdf.getPage(pageNum);
@@ -46,9 +78,9 @@ export const extractTextFromPDF = async (file: File): Promise<string> => {
 
     const pageTexts = await Promise.all(pagePromise);
 
-    text = pageTexts.join("\n");
-
-    return text;
+    // The page count is part of the document's own metadata line in the UI, so
+    // it is returned alongside the text rather than recomputed by the caller.
+    return { text: pageTexts.join("\n"), pageCount: numPages };
   } catch (error) {
     console.error("PDF Extraction Failed", error);
     throw new Error(
