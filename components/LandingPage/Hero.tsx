@@ -3,7 +3,7 @@ import Link from "next/link";
 const FEATURES = [
   { title: "Summaries", body: "The whole document in a few paragraphs." },
   { title: "Key terms", body: "Dates, amounts and names pulled out." },
-  { title: "Any length", body: "Two pages or two hundred." },
+  { title: "Clear limits", body: "Up to 20 pages and 10 MB per PDF." },
 ];
 
 const KEY_TERMS = [

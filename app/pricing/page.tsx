@@ -8,7 +8,7 @@ import Link from "next/link";
 import { checkAuthenticationAndSubscription } from "@/lib/checkAuthSubscription";
 
 const BENEFITS = [
-  "Unlimited documents",
+  "Up to 20 pages and 10 MB per PDF",
   "Full summaries and key terms",
   "Priority support",
 ];

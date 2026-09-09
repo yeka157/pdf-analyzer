@@ -9,7 +9,7 @@ const PaywallPanel = () => (
     <div className="invert-panel flex flex-col gap-3.5 px-5 py-6 md:gap-5 md:p-12">
       <h1 className="t-section">A plan is needed to run summaries</h1>
       <p className="t-body max-w-[400px] text-subtle">
-        $5.99 a month, unlimited documents, cancel whenever.
+        $5.99 a month, up to 20 pages and 10 MB per PDF, cancel whenever.
       </p>
       <div className="mt-1 flex flex-col gap-2.5 md:flex-row md:gap-3">
         <Link
