@@ -1,23 +1,27 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
+import { stripe } from "@/lib/stripe";
 
 export async function POST(req: Request) {
   const body = await req.text();
-  const signature = (await headers()).get("Stripe-Signature") as string;
+  const signature = (await headers()).get("Stripe-Signature");
+  const signingSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!(signature && signingSecret)) {
+    return NextResponse.json(
+      { error: "Webhook signature configuration is missing" },
+      { status: 500 }
+    );
+  }
 
   let event: Stripe.Event;
 
   // A bad signature can never succeed on a retry, so it is the one case that
   // genuinely warrants a 400.
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
+    event = stripe.webhooks.constructEvent(body, signature, signingSecret);
   } catch (error) {
     console.error("Stripe webhook signature verification failed:", error);
     return NextResponse.json(
@@ -46,6 +50,8 @@ export async function POST(req: Request) {
       case "invoice.payment_succeeded":
         await handlePaymentSucceeded(event.data.object as Stripe.Invoice);
         break;
+      default:
+        break;
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
@@ -71,15 +77,15 @@ export async function POST(req: Request) {
  * in the Basil API release to support mixed-cadence subscriptions.
  */
 function getSubscriptionPeriod(subscription: Stripe.Subscription) {
-  const item = subscription.items.data[0];
+  const [item] = subscription.items.data;
 
   if (!item) {
     throw new Error(`Subscription ${subscription.id} has no items`);
   }
 
   return {
-    currentPeriodStart: new Date(item.current_period_start * 1000),
     currentPeriodEnd: new Date(item.current_period_end * 1000),
+    currentPeriodStart: new Date(item.current_period_start * 1000),
     interval: item.price.recurring?.interval ?? "month",
     planId: item.price.id,
   };
@@ -113,10 +119,9 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
   const period = getSubscriptionPeriod(subscription);
 
   await prisma.subscription.upsert({
-    where: { stripeSubscriptionId: subscription.id },
     create: {
-      stripeSubscriptionId: subscription.id,
       status: subscription.status,
+      stripeSubscriptionId: subscription.id,
       userId: user.id,
       ...period,
     },
@@ -124,11 +129,14 @@ async function upsertSubscription(subscription: Stripe.Subscription) {
       status: subscription.status,
       ...period,
     },
+    where: { stripeSubscriptionId: subscription.id },
   });
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-  if (!session.subscription || !session.customer) return;
+  if (!(session.subscription && session.customer)) {
+    return;
+  }
 
   const subscription = await stripe.subscriptions.retrieve(
     session.subscription as string
@@ -154,7 +162,9 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
   // now hangs off `invoice.parent.subscription_details`.
   const subscriptionRef = invoice.parent?.subscription_details?.subscription;
 
-  if (!subscriptionRef) return;
+  if (!subscriptionRef) {
+    return;
+  }
 
   const subscriptionId =
     typeof subscriptionRef === "string" ? subscriptionRef : subscriptionRef.id;

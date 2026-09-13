@@ -1,4 +1,4 @@
-import { LogoMark } from "@/components/Logo";
+import { LogoMark } from "@/components/logo";
 
 /**
  * The auth screens are standalone cards on paper, with the mark above the

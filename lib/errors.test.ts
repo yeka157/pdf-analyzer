@@ -14,8 +14,8 @@ describe("handleApiError", () => {
 
     expect(response.status).toBe(429);
     await expect(response.json()).resolves.toEqual({
-      error: "Try again later",
       details: { retryAfter: 60 },
+      error: "Try again later",
     });
   });
 

@@ -1,12 +1,12 @@
-import { PDF_PROCESSING } from "./constants";
 import type { TextContent } from "pdfjs-dist/types/src/display/api";
+import { PDF_PROCESSING } from "./constants";
 
 let workerConfigured = false;
 
-export type ExtractedPdf = {
-  text: string;
+export interface ExtractedPdf {
   pageCount: number;
-};
+  text: string;
+}
 
 type PdfFileMetadata = Pick<File, "name" | "type" | "size">;
 
@@ -14,7 +14,7 @@ export const validatePdfFile = (file: PdfFileMetadata) => {
   const hasPdfMimeType = file.type === "application/pdf";
   const hasPdfExtension = file.name.toLowerCase().endsWith(".pdf");
 
-  if (!hasPdfMimeType && !hasPdfExtension) {
+  if (!(hasPdfMimeType || hasPdfExtension)) {
     return "Choose a PDF file to summarize.";
   }
 
@@ -49,21 +49,19 @@ async function loadPdfjs() {
   return pdfjs;
 }
 
-export const extractTextFromPDF = async (
-  file: File
-): Promise<ExtractedPdf> => {
+export const extractTextFromPDF = async (file: File): Promise<ExtractedPdf> => {
   try {
     const { getDocument } = await loadPdfjs();
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = getDocument({
       data: arrayBuffer,
-      useWorkerFetch: false,
       useSystemFonts: true,
+      useWorkerFetch: false,
     });
 
     const pdf = await loadingTask.promise;
 
-    const numPages = pdf.numPages;
+    const { numPages } = pdf;
     assertPageLimit(numPages);
     const pagePromise = Array.from({ length: numPages }, (_, i) => i + 1).map(
       async (pageNum) => {
@@ -80,13 +78,14 @@ export const extractTextFromPDF = async (
 
     // The page count is part of the document's own metadata line in the UI, so
     // it is returned alongside the text rather than recomputed by the caller.
-    return { text: pageTexts.join("\n"), pageCount: numPages };
+    return { pageCount: numPages, text: pageTexts.join("\n") };
   } catch (error) {
     console.error("PDF Extraction Failed", error);
     throw new Error(
       error instanceof Error
         ? `Failed to extract text from PDF: ${error.message}`
-        : "Failed to extract text from PDF"
+        : "Failed to extract text from PDF",
+      { cause: error }
     );
   }
 };

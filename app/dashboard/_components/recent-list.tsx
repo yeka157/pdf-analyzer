@@ -1,16 +1,18 @@
 "use client";
 
+import type { MouseEvent } from "react";
+
 import {
+  type DigestDocument,
   formatAdded,
   formatPages,
   STATUS_LABEL,
-  type DigestDocument,
 } from "./types";
 
 const statusColor: Record<DigestDocument["status"], string> = {
   done: "text-signal-fg",
-  reading: "text-meta",
   failed: "text-danger-fg",
+  reading: "text-meta",
 };
 
 const RecentList = ({
@@ -26,13 +28,33 @@ const RecentList = ({
   onRemove: (id: string) => void;
   onClear: () => void;
 }) => {
-  if (documents.length === 0) return null;
+  if (documents.length === 0) {
+    return null;
+  }
+
+  const handleSelect = (event: MouseEvent<HTMLButtonElement>) => {
+    const { documentId } = event.currentTarget.dataset;
+    if (documentId) {
+      onSelect(documentId);
+    }
+  };
+
+  const handleRemove = (event: MouseEvent<HTMLButtonElement>) => {
+    const { documentId } = event.currentTarget.dataset;
+    if (documentId) {
+      onRemove(documentId);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-3">
         <div className="t-label text-meta">Recent</div>
-        <button type="button" onClick={onClear} className="btn btn-quiet t-label">
+        <button
+          className="btn btn-quiet t-label"
+          onClick={onClear}
+          type="button"
+        >
           Clear all
         </button>
       </div>
@@ -43,18 +65,19 @@ const RecentList = ({
 
           return (
             <div
-              key={document.id}
               className={`flex items-stretch gap-1 border-l-2 transition-colors duration-150 ${
                 isSelected
                   ? "border-l-signal bg-surface-2 md:bg-surface-2"
                   : "border-l-transparent hover:bg-surface-2"
               } ${index < documents.length - 1 ? "border-b border-b-line-soft md:border-b-0" : ""}`}
+              key={document.id}
             >
               <button
-                type="button"
-                onClick={() => onSelect(document.id)}
                 aria-current={isSelected}
                 className="flex min-w-0 flex-1 items-center justify-between gap-3 px-4 py-4 text-left md:px-3.5 md:py-3"
+                data-document-id={document.id}
+                onClick={handleSelect}
+                type="button"
               >
                 <span className="flex flex-col gap-[3px] overflow-hidden">
                   <span
@@ -65,7 +88,9 @@ const RecentList = ({
                     {document.name}
                   </span>
                   <span className="t-label-sm text-meta md:hidden">
-                    {document.pageCount > 0 ? `${formatPages(document.pageCount)} · ` : ""}
+                    {document.pageCount > 0
+                      ? `${formatPages(document.pageCount)} · `
+                      : ""}
                     {formatAdded(document.addedAt)}
                   </span>
                 </span>
@@ -82,10 +107,11 @@ const RecentList = ({
                 </span>
               </button>
               <button
-                type="button"
-                onClick={() => onRemove(document.id)}
                 aria-label={`Remove ${document.name}`}
                 className="btn btn-quiet shrink-0 px-3 text-[11px]"
+                data-document-id={document.id}
+                onClick={handleRemove}
+                type="button"
               >
                 Remove
               </button>

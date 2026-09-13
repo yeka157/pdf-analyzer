@@ -21,35 +21,41 @@ const AccountNav = () => {
       document.getElementById(section.id)
     ).filter((element): element is HTMLElement => element !== null);
 
-    if (sections.length === 0) return;
+    if (sections.length === 0) {
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const visible = entries
+        const [visible] = entries
           .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
 
-        if (visible) setActiveId(visible.target.id);
+        if (visible) {
+          setActiveId(visible.target.id);
+        }
       },
       { rootMargin: "-76px 0px -60% 0px" }
     );
 
-    sections.forEach((section) => observer.observe(section));
+    for (const section of sections) {
+      observer.observe(section);
+    }
     return () => observer.disconnect();
   }, []);
 
   return (
-    <nav className="flex flex-col gap-0.5" aria-label="Account sections">
+    <nav aria-label="Account sections" className="flex flex-col gap-0.5">
       {SECTIONS.map((section) => (
         <a
-          key={section.id}
-          href={`#${section.id}`}
           aria-current={activeId === section.id}
           className={`border-l-2 px-3.5 py-2.5 text-[15px] transition-colors duration-150 ${
             activeId === section.id
               ? "border-l-signal bg-surface font-medium text-ink"
               : "border-l-transparent text-subtle hover:text-ink"
           }`}
+          href={`#${section.id}`}
+          key={section.id}
         >
           {section.label}
         </a>
@@ -57,8 +63,8 @@ const AccountNav = () => {
 
       <SignOutButton>
         <button
-          type="button"
           className="border-l-2 border-l-transparent px-3.5 py-2.5 text-left text-[15px] text-subtle transition-colors duration-150 hover:text-ink"
+          type="button"
         >
           Sign out
         </button>

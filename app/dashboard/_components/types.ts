@@ -6,23 +6,23 @@ export type DocumentStatus = "reading" | "done" | "failed";
  * A document lives for the length of the session: nothing here is persisted,
  * so "Recent" means "uploaded in this tab" rather than "in your account".
  */
-export type DigestDocument = {
-  id: string;
+export interface DigestDocument {
+  addedAt: number;
+  canRetry: boolean;
+  error?: string;
   file: File;
+  id: string;
+  keyTerms: KeyTerm[];
   name: string;
   pageCount: number;
-  addedAt: number;
   status: DocumentStatus;
   summary: string[];
-  keyTerms: KeyTerm[];
-  error?: string;
-  canRetry: boolean;
-};
+}
 
 export const STATUS_LABEL: Record<DocumentStatus, string> = {
-  reading: "Reading",
   done: "Done",
   failed: "Failed",
+  reading: "Reading",
 };
 
 export const formatPages = (pageCount: number) =>

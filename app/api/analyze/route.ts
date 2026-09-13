@@ -1,15 +1,18 @@
-import { checkAuthenticationAndSubscription } from "@/lib/checkAuthSubscription";
+import { type NextRequest, NextResponse } from "next/server";
+import { checkAuthenticationAndSubscription } from "@/lib/check-auth-subscription";
 import { API, PDF_PROCESSING } from "@/lib/constants";
 import { ApiError, handleApiError } from "@/lib/errors";
-import { rateLimiter } from "@/lib/rateLimiters";
-import { NextRequest, NextResponse } from "next/server";
+import { rateLimiter } from "@/lib/rate-limiters";
 
-export type KeyTerm = { label: string; value: string };
+export interface KeyTerm {
+  label: string;
+  value: string;
+}
 
-export type AnalyzeResponse = {
-  summary: string[];
+export interface AnalyzeResponse {
   keyTerms: KeyTerm[];
-};
+  summary: string[];
+}
 
 const PROMPT = `Summarise this document for someone who will not read it.
 
@@ -34,27 +37,27 @@ Document content:
  * reason.
  */
 const RESPONSE_SCHEMA = {
-  type: "OBJECT",
   properties: {
-    summary: {
-      type: "ARRAY",
-      description: "Two to four paragraphs of plain prose.",
-      items: { type: "STRING" },
-    },
     keyTerms: {
-      type: "ARRAY",
       description: "Up to four label/value pairs.",
       items: {
-        type: "OBJECT",
         properties: {
           label: { type: "STRING" },
           value: { type: "STRING" },
         },
         required: ["label", "value"],
+        type: "OBJECT",
       },
+      type: "ARRAY",
+    },
+    summary: {
+      description: "Two to four paragraphs of plain prose.",
+      items: { type: "STRING" },
+      type: "ARRAY",
     },
   },
   required: ["summary", "keyTerms"],
+  type: "OBJECT",
 };
 
 export async function POST(request: NextRequest) {
@@ -88,16 +91,11 @@ export async function POST(request: NextRequest) {
       throw new ApiError(400, "Invalid input: text cannot be empty");
     }
 
-    const processedText = text.substring(0, PDF_PROCESSING.MAX_TEXT_LENGTH);
+    const processedText = text.slice(0, PDF_PROCESSING.MAX_TEXT_LENGTH);
 
     const response = await fetch(
       `${API.GEMINI_ENDPOINT}?key=${process.env.GEMINI_API_KEY}`,
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        signal: request.signal,
         body: JSON.stringify({
           contents: [
             {
@@ -105,12 +103,17 @@ export async function POST(request: NextRequest) {
             },
           ],
           generationConfig: {
-            temperature: 0.4,
             maxOutputTokens: 1024,
             responseMimeType: "application/json",
             responseSchema: RESPONSE_SCHEMA,
+            temperature: 0.4,
           },
         }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+        signal: request.signal,
       }
     );
 
@@ -135,8 +138,8 @@ export async function POST(request: NextRequest) {
     let parsed: Partial<AnalyzeResponse>;
     try {
       parsed = JSON.parse(raw);
-    } catch {
-      throw new ApiError(500, "Invalid response from AI service");
+    } catch (error) {
+      throw new Error("Invalid response from AI service", { cause: error });
     }
 
     const summary = Array.isArray(parsed.summary)
@@ -164,7 +167,7 @@ export async function POST(request: NextRequest) {
           .slice(0, 4)
       : [];
 
-    return NextResponse.json({ summary, keyTerms } satisfies AnalyzeResponse);
+    return NextResponse.json({ keyTerms, summary } satisfies AnalyzeResponse);
   } catch (error) {
     return handleApiError(error);
   }

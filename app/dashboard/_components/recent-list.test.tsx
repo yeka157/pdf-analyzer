@@ -2,20 +2,19 @@
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-
+import RecentList from "./recent-list";
 import type { DigestDocument } from "./types";
-import RecentList from "./RecentList";
 
 const document: DigestDocument = {
-  id: "document-1",
+  addedAt: Date.now(),
+  canRetry: false,
   file: new File(["pdf"], "contract.pdf", { type: "application/pdf" }),
+  id: "document-1",
+  keyTerms: [],
   name: "contract.pdf",
   pageCount: 3,
-  addedAt: Date.now(),
   status: "done",
   summary: [],
-  keyTerms: [],
-  canRetry: false,
 };
 
 describe("RecentList", () => {
@@ -25,10 +24,10 @@ describe("RecentList", () => {
     render(
       <RecentList
         documents={[document]}
-        selectedId={document.id}
-        onSelect={vi.fn()}
-        onRemove={onRemove}
         onClear={vi.fn()}
+        onRemove={onRemove}
+        onSelect={vi.fn()}
+        selectedId={document.id}
       />
     );
 
@@ -45,10 +44,10 @@ describe("RecentList", () => {
     render(
       <RecentList
         documents={[document]}
-        selectedId={document.id}
-        onSelect={vi.fn()}
-        onRemove={vi.fn()}
         onClear={onClear}
+        onRemove={vi.fn()}
+        onSelect={vi.fn()}
+        selectedId={document.id}
       />
     );
 

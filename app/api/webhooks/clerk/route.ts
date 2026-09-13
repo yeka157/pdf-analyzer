@@ -1,13 +1,13 @@
-import { prisma } from "@/lib/prisma";
 import { verifyWebhook } from "@clerk/nextjs/webhooks";
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 function buildName(firstName?: string | null, lastName?: string | null) {
   return `${firstName || ""} ${lastName || ""}`.trim() || null;
 }
 
 export async function POST(req: NextRequest) {
-  let evt;
+  let evt: Awaited<ReturnType<typeof verifyWebhook>>;
 
   try {
     evt = await verifyWebhook(req, {
@@ -35,9 +35,9 @@ export async function POST(req: NextRequest) {
         // Upsert rather than create: `user.updated` can arrive for a user this
         // database has never seen, and `user.created` can be redelivered.
         await prisma.user.upsert({
-          where: { id },
-          create: { id, email, name },
+          create: { email, id, name },
           update: { email, name },
+          where: { id },
         });
         break;
       }
@@ -45,13 +45,17 @@ export async function POST(req: NextRequest) {
       case "user.deleted": {
         const { id } = evt.data;
 
-        if (!id) break;
+        if (!id) {
+          break;
+        }
 
         // Subscription rows reference User, so clear them first.
         await prisma.subscription.deleteMany({ where: { userId: id } });
         await prisma.user.deleteMany({ where: { id } });
         break;
       }
+      default:
+        break;
     }
 
     return new Response("Webhook received", { status: 200 });

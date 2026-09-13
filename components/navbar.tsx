@@ -1,12 +1,12 @@
 "use client";
 
+import { Show, SignOutButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Show, SignOutButton } from "@clerk/nextjs";
+import { useCallback, useEffect, useState } from "react";
 
-import Logo from "@/components/Logo";
-import ThemeToggle from "@/components/theme/ThemeToggle";
+import Logo from "@/components/logo";
+import ThemeToggle from "@/components/theme/theme-toggle";
 
 const LINKS = [
   { href: "/dashboard", label: "Documents" },
@@ -19,10 +19,12 @@ const Navbar = () => {
 
   // The auth screens are standalone cards in the design — no chrome above them.
   const isAuthRoute =
-    pathname?.startsWith("/sign-in") || pathname?.startsWith("/sign-up");
+    pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up");
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      return;
+    }
 
     document.body.style.overflow = "hidden";
     return () => {
@@ -30,12 +32,17 @@ const Navbar = () => {
     };
   }, [isOpen]);
 
-  if (isAuthRoute) return null;
+  const toggleMenu = useCallback(() => setOpen((open) => !open), []);
+  const closeMenu = useCallback(() => setOpen(false), []);
 
-  const isActive = (href: string) => pathname?.startsWith(href);
+  if (isAuthRoute) {
+    return null;
+  }
+
+  const isActive = (href: string) => pathname.startsWith(href);
 
   return (
-    <nav className="relative z-50 border-b border-line bg-surface dark:bg-paper">
+    <nav className="relative z-50 border-line border-b bg-surface dark:bg-paper">
       <div className="flex h-[60px] items-center justify-between px-5 md:h-[76px] md:px-8 lg:px-10">
         <Logo />
 
@@ -43,13 +50,13 @@ const Navbar = () => {
         <div className="hidden items-center gap-7 md:flex">
           {LINKS.map((link) => (
             <Link
-              key={link.href}
-              href={link.href}
               className={`t-ui transition-colors ${
                 isActive(link.href)
                   ? "font-medium text-ink"
                   : "text-subtle hover:text-ink"
               }`}
+              href={link.href}
+              key={link.href}
             >
               {link.label}
             </Link>
@@ -57,12 +64,12 @@ const Navbar = () => {
 
           <Show when="signed-in">
             <Link
-              href="/account"
               className={`t-ui transition-colors ${
                 isActive("/account")
                   ? "font-medium text-ink"
                   : "text-subtle hover:text-ink"
               }`}
+              href="/account"
             >
               Account
             </Link>
@@ -72,14 +79,17 @@ const Navbar = () => {
 
           <Show when="signed-in">
             <SignOutButton>
-              <button type="button" className="btn btn-quiet t-ui">
+              <button className="btn btn-quiet t-ui" type="button">
                 Sign out
               </button>
             </SignOutButton>
           </Show>
 
           <Show when="signed-out">
-            <Link href="/sign-in" className="btn btn-signal px-[18px] py-[9px] text-[14px]">
+            <Link
+              className="btn btn-signal px-[18px] py-[9px] text-[14px]"
+              href="/sign-in"
+            >
               Sign in
             </Link>
           </Show>
@@ -87,11 +97,11 @@ const Navbar = () => {
 
         {/* Mobile trigger — two rules, per the design; no icon set involved. */}
         <button
-          type="button"
-          onClick={() => setOpen((open) => !open)}
           aria-expanded={isOpen}
           aria-label={isOpen ? "Close menu" : "Open menu"}
           className="relative flex h-11 w-11 flex-col items-center justify-center gap-[5px] md:hidden"
+          onClick={toggleMenu}
+          type="button"
         >
           <span
             className={`h-[1.5px] w-5 bg-ink transition-transform duration-150 ${
@@ -107,15 +117,15 @@ const Navbar = () => {
       </div>
 
       {/* Mobile menu — full-screen list */}
-      {isOpen && (
+      {isOpen ? (
         <div className="fixed inset-x-0 top-[60px] bottom-0 z-40 overflow-y-auto bg-paper md:hidden">
           <div className="flex flex-col">
             {LINKS.map((link) => (
               <Link
-                key={link.href}
+                className="border-line border-b px-5 py-5 font-semibold text-[22px] tracking-[-0.02em]"
                 href={link.href}
-                onClick={() => setOpen(false)}
-                className="border-b border-line px-5 py-5 text-[22px] font-semibold tracking-[-0.02em]"
+                key={link.href}
+                onClick={closeMenu}
               >
                 {link.label}
               </Link>
@@ -123,15 +133,15 @@ const Navbar = () => {
 
             <Show when="signed-in">
               <Link
+                className="border-line border-b px-5 py-5 font-semibold text-[22px] tracking-[-0.02em]"
                 href="/account"
-                onClick={() => setOpen(false)}
-                className="border-b border-line px-5 py-5 text-[22px] font-semibold tracking-[-0.02em]"
+                onClick={closeMenu}
               >
                 Account
               </Link>
             </Show>
 
-            <div className="flex items-center justify-between border-b border-line px-5 py-5">
+            <div className="flex items-center justify-between border-line border-b px-5 py-5">
               <span className="t-body text-subtle">Appearance</span>
               <ThemeToggle />
             </div>
@@ -140,8 +150,8 @@ const Navbar = () => {
               <Show when="signed-in">
                 <SignOutButton>
                   <button
-                    type="button"
                     className="btn btn-outline w-full py-4 text-[16px]"
+                    type="button"
                   >
                     Sign out
                   </button>
@@ -150,16 +160,16 @@ const Navbar = () => {
 
               <Show when="signed-out">
                 <Link
-                  href="/sign-in"
-                  onClick={() => setOpen(false)}
                   className="btn btn-signal w-full py-4 text-[16px]"
+                  href="/sign-in"
+                  onClick={closeMenu}
                 >
                   Sign in
                 </Link>
                 <Link
-                  href="/sign-up"
-                  onClick={() => setOpen(false)}
                   className="btn btn-outline w-full py-4 text-[16px]"
+                  href="/sign-up"
+                  onClick={closeMenu}
                 >
                   Create account
                 </Link>
@@ -167,7 +177,7 @@ const Navbar = () => {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </nav>
   );
 };

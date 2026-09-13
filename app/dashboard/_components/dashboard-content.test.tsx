@@ -12,13 +12,13 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-vi.mock("@/lib/pdfUtils", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/pdfUtils")>();
+vi.mock("@/lib/pdf-utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/pdf-utils")>();
 
   return { ...actual, extractTextFromPDF };
 });
 
-import DashboardContent from "./DashboardContent";
+import DashboardContent from "./dashboard-content";
 
 const fetchMock = vi.fn();
 global.fetch = fetchMock;
@@ -39,7 +39,12 @@ afterEach(() => {
 
 describe("DashboardContent", () => {
   it("shows processing while PDF text is being extracted", async () => {
-    let resolveExtraction: (value: { text: string; pageCount: number }) => void;
+    let resolveExtraction: (value: {
+      text: string;
+      pageCount: number;
+    }) => void = () => {
+      throw new Error("Extraction promise was not initialized");
+    };
     extractTextFromPDF.mockReturnValue(
       new Promise((resolve) => {
         resolveExtraction = resolve;
@@ -58,11 +63,16 @@ describe("DashboardContent", () => {
       await screen.findByRole("progressbar", { name: "Reading document" })
     ).toBeInTheDocument();
 
-    resolveExtraction!({ text: "Agreement text", pageCount: 1 });
+    resolveExtraction({ pageCount: 1, text: "Agreement text" });
   });
 
   it("removes a document when processing is cancelled", async () => {
-    let resolveExtraction: (value: { text: string; pageCount: number }) => void;
+    let resolveExtraction: (value: {
+      text: string;
+      pageCount: number;
+    }) => void = () => {
+      throw new Error("Extraction promise was not initialized");
+    };
     extractTextFromPDF.mockReturnValue(
       new Promise((resolve) => {
         resolveExtraction = resolve;
@@ -85,13 +95,13 @@ describe("DashboardContent", () => {
       screen.queryByText("consulting-agreement.pdf")
     ).not.toBeInTheDocument();
 
-    resolveExtraction!({ text: "Agreement text", pageCount: 1 });
+    resolveExtraction({ pageCount: 1, text: "Agreement text" });
   });
 
   it("aborts the Gemini request when analysis is cancelled", async () => {
     extractTextFromPDF.mockResolvedValue({
-      text: "Agreement text",
       pageCount: 1,
+      text: "Agreement text",
     });
     let requestSignal: AbortSignal | undefined;
     fetchMock.mockImplementation((_url, options) => {
@@ -118,15 +128,15 @@ describe("DashboardContent", () => {
 
   it("shows a completed summary after a valid PDF is processed", async () => {
     extractTextFromPDF.mockResolvedValue({
-      text: "A short agreement about consulting services.",
       pageCount: 2,
+      text: "A short agreement about consulting services.",
     });
     fetchMock.mockResolvedValue({
-      ok: true,
       json: async () => ({
-        summary: ["The agreement covers consulting services."],
         keyTerms: [{ label: "Term", value: "12 months" }],
+        summary: ["The agreement covers consulting services."],
       }),
+      ok: true,
     });
 
     render(<DashboardContent />);
@@ -137,24 +147,26 @@ describe("DashboardContent", () => {
     );
     runSelectedFile();
 
-    expect(await screen.findByText("The agreement covers consulting services.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("The agreement covers consulting services.")
+    ).toBeInTheDocument();
     expect(screen.getAllByText("2 pages · added today")).not.toHaveLength(0);
     expect(screen.getByText("12 months")).toBeInTheDocument();
   });
 
   it("offers a retry and replaces the failure with a completed summary", async () => {
     extractTextFromPDF.mockResolvedValue({
-      text: "A short agreement about consulting services.",
       pageCount: 1,
+      text: "A short agreement about consulting services.",
     });
     fetchMock
       .mockRejectedValueOnce(new Error("The summary service is unavailable."))
       .mockResolvedValueOnce({
-        ok: true,
         json: async () => ({
-          summary: ["The retry completed successfully."],
           keyTerms: [],
+          summary: ["The retry completed successfully."],
         }),
+        ok: true,
       });
 
     render(<DashboardContent />);

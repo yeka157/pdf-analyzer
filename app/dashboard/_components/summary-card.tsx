@@ -12,8 +12,8 @@ const SummaryCard = ({
       The 62ch measure is the point of this card: a summary should read as
       prose, so the text does not run the full width of the column.
     */}
-    {summary.map((paragraph, index) => (
-      <p key={index} className="t-prose">
+    {summary.map((paragraph) => (
+      <p className="t-prose" key={paragraph}>
         {paragraph}
       </p>
     ))}
@@ -25,9 +25,9 @@ const SummaryCard = ({
           <div className="t-sub text-[18px] md:text-[20px]">Key terms</div>
           <div className="tile-grid grid-cols-2 border border-line-soft md:grid-cols-4 md:border-0">
             {keyTerms.map((term) => (
-              <div key={term.label} className="p-3.5 md:p-4">
+              <div className="p-3.5 md:p-4" key={term.label}>
                 <div className="t-label-sm mb-1.5 text-meta">{term.label}</div>
-                <div className="text-[15px] font-medium md:text-[16px]">
+                <div className="font-medium text-[15px] md:text-[16px]">
                   {term.value}
                 </div>
               </div>

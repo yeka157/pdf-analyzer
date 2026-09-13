@@ -1,8 +1,7 @@
-import RedirectComponent from "@/components/RedirectComponent";
-import PaywallPanel from "@/components/PaywallPanel";
-import DashboardContent from "./_components/DashboardContent";
-import { checkAuthenticationAndSubscription } from "@/lib/checkAuthSubscription";
-import React from "react";
+import PaywallPanel from "@/components/paywall-panel";
+import RedirectComponent from "@/components/redirect-component";
+import { checkAuthenticationAndSubscription } from "@/lib/check-auth-subscription";
+import DashboardContent from "./_components/dashboard-content";
 
 const Dashboard = async () => {
   // Deliberately not wrapped in try/catch: `checkAuthenticationAndSubscription`

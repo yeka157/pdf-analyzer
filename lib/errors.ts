@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 
 export class ApiError extends Error {
-  constructor(
-    public statusCode: number,
-    public message: string,
-    public details?: unknown
-  ) {
+  statusCode: number;
+  details?: unknown;
+
+  constructor(statusCode: number, message: string, details?: unknown) {
     super(message);
+    this.statusCode = statusCode;
+    this.details = details;
   }
 }
 
@@ -15,7 +16,7 @@ export const handleApiError = (error: unknown): NextResponse => {
 
   if (error instanceof ApiError) {
     return NextResponse.json(
-      { error: error.message, details: error.details },
+      { details: error.details, error: error.message },
       { status: error.statusCode }
     );
   }

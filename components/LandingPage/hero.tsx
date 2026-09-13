@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 const FEATURES = [
-  { title: "Summaries", body: "The whole document in a few paragraphs." },
-  { title: "Key terms", body: "Dates, amounts and names pulled out." },
-  { title: "Clear limits", body: "Up to 20 pages and 10 MB per PDF." },
+  { body: "The whole document in a few paragraphs.", title: "Summaries" },
+  { body: "Dates, amounts and names pulled out.", title: "Key terms" },
+  { body: "Up to 20 pages and 10 MB per PDF.", title: "Clear limits" },
 ];
 
 const KEY_TERMS = [
@@ -24,14 +24,14 @@ const Hero = () => {
           </p>
           <div className="mt-1 flex flex-col gap-2.5 md:flex-row md:items-center md:gap-3">
             <Link
-              href="/dashboard"
               className="btn btn-signal px-5 py-4 text-[16px] md:px-[26px] md:py-[15px] md:text-[15px]"
+              href="/dashboard"
             >
               Upload a PDF
             </Link>
             <Link
-              href="/pricing"
               className="btn btn-outline px-5 py-4 text-[16px] md:px-5 md:py-[15px] md:text-[15px]"
+              href="/pricing"
             >
               See pricing
             </Link>
@@ -43,7 +43,7 @@ const Hero = () => {
           graphic: it is the product's output, shown at rest.
         */}
         <div className="border border-line-strong bg-surface">
-          <div className="t-meta flex items-center justify-between border-b border-line-strong px-4 py-3.5 text-meta md:px-5 md:py-4">
+          <div className="t-meta flex items-center justify-between border-line-strong border-b px-4 py-3.5 text-meta md:px-5 md:py-4">
             <span>lease-agreement.pdf</span>
             <span className="text-signal">summary ready</span>
           </div>
@@ -68,22 +68,22 @@ const Hero = () => {
       </div>
 
       <div
+        className="grid scroll-mt-20 grid-cols-1 border-line border-t md:grid-cols-3"
         id="features"
-        className="grid scroll-mt-20 grid-cols-1 border-t border-line md:grid-cols-3"
       >
         {FEATURES.map((feature, index) => (
           <div
-            key={feature.title}
             className={`flex flex-col gap-1 px-5 py-5.5 md:gap-2 md:px-10 md:py-9 ${
               index < FEATURES.length - 1
-                ? "border-b border-line md:border-r md:border-b-0"
+                ? "border-line border-b md:border-r md:border-b-0"
                 : ""
             }`}
+            key={feature.title}
           >
             <div className="t-sub text-[18px] md:text-[20px]">
               {feature.title}
             </div>
-            <div className="text-[14px] leading-[1.6] text-subtle md:text-[15px]">
+            <div className="text-[14px] text-subtle leading-[1.6] md:text-[15px]">
               {feature.body}
             </div>
           </div>

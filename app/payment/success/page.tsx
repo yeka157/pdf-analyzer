@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { CircleCheck } from "lucide-react";
-import React from "react";
+import Link from "next/link";
 
 const PaymentSuccess = () => (
   <div className="px-5 py-8 md:px-10 md:py-12">
@@ -8,15 +7,15 @@ const PaymentSuccess = () => (
       <div className="mb-3 flex items-center gap-2.5">
         <CircleCheck
           aria-hidden
-          strokeWidth={2}
           className="size-5 shrink-0 text-signal"
+          strokeWidth={2}
         />
         <h1 className="t-card">Payment received</h1>
       </div>
       <p className="t-body mb-5.5 text-subtle">Your subscription is active.</p>
       <Link
-        href="/dashboard"
         className="btn btn-ink px-5.5 py-3 text-[15px] md:text-[14px]"
+        href="/dashboard"
       >
         Open documents
       </Link>

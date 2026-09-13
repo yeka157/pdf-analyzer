@@ -1,27 +1,27 @@
 import type { Metadata } from "next";
-import { Instrument_Sans, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Instrument_Sans } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import ThemeProvider from "@/components/theme/ThemeProvider";
 import { ClerkProvider } from "@clerk/nextjs";
-import { clerkAppearance, clerkLocalization } from "@/lib/clerkAppearance";
+import Navbar from "@/components/navbar";
+import ThemeProvider from "@/components/theme/theme-provider";
+import { clerkAppearance, clerkLocalization } from "@/lib/clerk-appearance";
 
 const instrumentSans = Instrument_Sans({
-  variable: "--font-instrument-sans",
   subsets: ["latin"],
+  variable: "--font-instrument-sans",
   weight: ["400", "500", "600"],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
   subsets: ["latin"],
+  variable: "--font-geist-mono",
   weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
-  title: "Digest",
   description:
     "Upload a document and read a summary you can finish in a minute.",
+  title: "Digest",
 };
 
 export default function RootLayout({

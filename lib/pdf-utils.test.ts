@@ -1,27 +1,27 @@
 import { describe, expect, it } from "vitest";
 
-import { assertPageLimit, validatePdfFile } from "./pdfUtils";
+import { assertPageLimit, validatePdfFile } from "./pdf-utils";
 
 describe("validatePdfFile", () => {
   it("accepts a PDF identified by its MIME type", () => {
     expect(
       validatePdfFile({
         name: "agreement",
-        type: "application/pdf",
         size: 1024,
+        type: "application/pdf",
       })
     ).toBeNull();
   });
 
   it("accepts a PDF extension when the browser omits the MIME type", () => {
     expect(
-      validatePdfFile({ name: "agreement.PDF", type: "", size: 1024 })
+      validatePdfFile({ name: "agreement.PDF", size: 1024, type: "" })
     ).toBeNull();
   });
 
   it("rejects a non-PDF file before extraction", () => {
     expect(
-      validatePdfFile({ name: "notes.txt", type: "text/plain", size: 1024 })
+      validatePdfFile({ name: "notes.txt", size: 1024, type: "text/plain" })
     ).toBe("Choose a PDF file to summarize.");
   });
 
@@ -29,8 +29,8 @@ describe("validatePdfFile", () => {
     expect(
       validatePdfFile({
         name: "large-agreement.pdf",
-        type: "application/pdf",
         size: 10 * 1024 * 1024 + 1,
+        type: "application/pdf",
       })
     ).toBe("Choose a PDF that is 10 MB or smaller.");
   });

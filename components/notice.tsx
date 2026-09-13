@@ -15,17 +15,19 @@ const Notice = ({
 
   return (
     <div
-      role={tone === "error" ? "alert" : "status"}
       className={`flex items-center gap-2.5 border border-line bg-surface px-4.5 py-4 ${
-        tone === "success" ? "border-l-2 border-l-signal" : "border-l-2 border-l-danger"
+        tone === "success"
+          ? "border-l-2 border-l-signal"
+          : "border-l-2 border-l-danger"
       }`}
+      role={tone === "error" ? "alert" : "status"}
     >
       <Icon
         aria-hidden
-        strokeWidth={2}
         className={`size-[17px] shrink-0 ${
           tone === "success" ? "text-signal" : "text-danger"
         }`}
+        strokeWidth={2}
       />
       <span className="t-small">{children}</span>
     </div>

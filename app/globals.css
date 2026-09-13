@@ -13,8 +13,6 @@
   page around them is light, without a second set of class names.
 */
 :root {
-  color-scheme: light;
-
   --ink: oklch(0.2 0.008 250);
   --on-ink: oklch(1 0 0);
   --paper: oklch(0.93 0.004 250);
@@ -32,12 +30,11 @@
   --signal-mark: oklch(0.5 0.13 165 / 16%);
   --danger: oklch(0.62 0.16 30);
   --danger-fg: oklch(0.5 0.14 30);
+  color-scheme: light;
 }
 
 .dark,
 .invert-panel {
-  color-scheme: dark;
-
   --ink: oklch(0.97 0.003 250);
   --on-ink: oklch(0.16 0.008 250);
   --paper: oklch(0.16 0.008 250);
@@ -57,6 +54,7 @@
   --signal-mark: oklch(0.72 0.14 165 / 18%);
   --danger: oklch(0.62 0.16 30);
   --danger-fg: oklch(0.72 0.14 30);
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -121,10 +119,10 @@
   }
 
   body {
-    background-color: var(--paper);
-    color: var(--ink);
     font-family: var(--font-instrument-sans), system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    color: var(--ink);
+    background-color: var(--paper);
   }
 
   /*
@@ -144,72 +142,72 @@
 @layer components {
   /* Inverted panel: dark in both themes. Pricing, paywall, subscription ended. */
   .invert-panel {
-    background-color: var(--paper);
     color: var(--ink);
+    background-color: var(--paper);
   }
 
   /* ---- Type scale (see handoff README) ---- */
   .t-display {
     font-size: 68px;
-    line-height: 0.98;
     font-weight: 600;
+    line-height: 0.98;
     letter-spacing: -0.04em;
     text-wrap: pretty;
   }
 
   .t-page {
     font-size: 32px;
-    line-height: 1.05;
     font-weight: 600;
+    line-height: 1.05;
     letter-spacing: -0.03em;
   }
 
   .t-section {
     font-size: 30px;
-    line-height: 1.1;
     font-weight: 600;
+    line-height: 1.1;
     letter-spacing: -0.03em;
   }
 
   .t-card {
     font-size: 24px;
-    line-height: 1.15;
     font-weight: 600;
+    line-height: 1.15;
     letter-spacing: -0.02em;
   }
 
   .t-auth {
     font-size: 26px;
-    line-height: 1.15;
     font-weight: 600;
+    line-height: 1.15;
     letter-spacing: -0.025em;
   }
 
   .t-sub {
     font-size: 20px;
-    line-height: 1.25;
     font-weight: 600;
+    line-height: 1.25;
     letter-spacing: -0.015em;
   }
 
   .t-body-lg {
     font-size: 19px;
-    line-height: 1.55;
     font-weight: 400;
+    line-height: 1.55;
     text-wrap: pretty;
   }
 
   .t-prose {
-    font-size: 17px;
-    line-height: 1.7;
-    font-weight: 400;
     max-width: 62ch;
+    font-size: 17px;
+    font-weight: 400;
+    line-height: 1.7;
   }
 
   .t-body {
     font-size: 16px;
-    line-height: 1.6;
     font-weight: 400;
+    line-height: 1.6;
   }
 
   .t-ui {
@@ -226,24 +224,24 @@
     font-family: var(--font-geist-mono), ui-monospace, monospace;
     font-size: 11px;
     font-weight: 400;
-    letter-spacing: 0.08em;
     text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
   .t-label-sm {
     font-family: var(--font-geist-mono), ui-monospace, monospace;
     font-size: 10px;
     font-weight: 400;
-    letter-spacing: 0.08em;
     text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
   .t-meta {
     font-family: var(--font-geist-mono), ui-monospace, monospace;
     font-size: 11px;
     font-weight: 400;
-    letter-spacing: 0.06em;
     text-transform: uppercase;
+    letter-spacing: 0.06em;
   }
 
   @media (max-width: 767px) {
@@ -279,14 +277,17 @@
   /* ---- Controls ---- */
   .btn {
     display: inline-flex;
+    gap: 8px;
     align-items: center;
     justify-content: center;
-    gap: 8px;
     font-size: 15px;
     font-weight: 500;
     text-align: center;
-    transition: background-color 140ms ease, border-color 140ms ease,
-      color 140ms ease, opacity 140ms ease;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease,
+      opacity 140ms ease;
   }
 
   /*
@@ -299,13 +300,13 @@
 
   .btn-signal:disabled,
   .btn-ink:disabled {
-    background-color: var(--surface-2);
     color: var(--meta);
+    background-color: var(--surface-2);
   }
 
   .btn-outline:disabled {
-    border-color: var(--line);
     color: var(--meta);
+    border-color: var(--line);
   }
 
   .btn-quiet:disabled {
@@ -313,9 +314,9 @@
   }
 
   .btn-signal {
-    background-color: var(--signal);
-    color: var(--on-signal);
     font-weight: 600;
+    color: var(--on-signal);
+    background-color: var(--signal);
   }
 
   .btn-signal:not(:disabled):hover {
@@ -323,8 +324,8 @@
   }
 
   .btn-ink {
-    background-color: var(--ink);
     color: var(--on-ink);
+    background-color: var(--ink);
   }
 
   .btn-ink:not(:disabled):hover {
@@ -332,8 +333,8 @@
   }
 
   .btn-outline {
-    border: 1px solid var(--line-strong);
     color: var(--ink);
+    border: 1px solid var(--line-strong);
   }
 
   .btn-outline:not(:disabled):hover {
@@ -351,17 +352,19 @@
   /* Segmented control (theme switch, appearance) */
   .segmented {
     display: inline-flex;
-    border: 1px solid var(--line-strong);
     font-family: var(--font-geist-mono), ui-monospace, monospace;
     font-size: 10px;
-    letter-spacing: 0.08em;
     text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border: 1px solid var(--line-strong);
   }
 
   .segmented > button {
     padding: 7px 11px;
     color: var(--meta);
-    transition: background-color 140ms ease, color 140ms ease;
+    transition:
+      background-color 140ms ease,
+      color 140ms ease;
   }
 
   .segmented > button + button {
@@ -373,19 +376,19 @@
   }
 
   .segmented > button[aria-pressed="true"] {
-    background-color: var(--surface-2);
     color: var(--ink);
+    background-color: var(--surface-2);
   }
 
   /* Status pill */
   .pill {
+    padding: 6px 10px;
     font-family: var(--font-geist-mono), ui-monospace, monospace;
     font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    padding: 6px 10px;
-    background-color: var(--signal-soft);
     color: var(--signal-fg);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background-color: var(--signal-soft);
   }
 
   /* Hairline-gap tiling: parent paints the 1px gaps, children paint over it. */
@@ -408,14 +411,14 @@
   */
   .progress-track {
     height: 3px;
-    background-color: var(--line-soft);
     overflow: hidden;
+    background-color: var(--line-soft);
   }
 
   .progress-track > span {
     display: block;
-    height: 3px;
     width: 34%;
+    height: 3px;
     background-color: var(--signal);
     animation: digest-progress 1.3s ease-in-out infinite;
   }

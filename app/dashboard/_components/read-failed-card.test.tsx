@@ -3,7 +3,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import ReadFailedCard from "./ReadFailedCard";
+import ReadFailedCard from "./read-failed-card";
 
 describe("ReadFailedCard", () => {
   it("retries the same file after a transient failure", () => {
@@ -11,10 +11,10 @@ describe("ReadFailedCard", () => {
 
     render(
       <ReadFailedCard
-        message="The analysis service is unavailable."
         canRetry
-        onRetry={onRetry}
+        message="The analysis service is unavailable."
         onChooseAnother={vi.fn()}
+        onRetry={onRetry}
       />
     );
 
@@ -28,16 +28,14 @@ describe("ReadFailedCard", () => {
 
     render(
       <ReadFailedCard
-        message="The PDF has no selectable text."
         canRetry={false}
-        onRetry={vi.fn()}
+        message="The PDF has no selectable text."
         onChooseAnother={onChooseAnother}
+        onRetry={vi.fn()}
       />
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Choose another PDF" })
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Choose another PDF" }));
 
     expect(onChooseAnother).toHaveBeenCalledOnce();
   });

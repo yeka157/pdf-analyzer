@@ -3,6 +3,8 @@
 import { useUser } from "@clerk/nextjs";
 import { useState } from "react";
 
+const WHITESPACE_PATTERN = /\s+/;
+
 const joinName = (firstName?: string | null, lastName?: string | null) =>
   `${firstName || ""} ${lastName || ""}`.trim();
 
@@ -28,12 +30,14 @@ const ProfileForm = () => {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!user || !isDirty) return;
+    if (!(user && isDirty)) {
+      return;
+    }
 
     setStatus("saving");
     setError("");
 
-    const [firstName, ...rest] = value.trim().split(/\s+/);
+    const [firstName, ...rest] = value.trim().split(WHITESPACE_PATTERN);
 
     try {
       await user.update({
@@ -50,10 +54,20 @@ const ProfileForm = () => {
     }
   };
 
+  const handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setName(event.target.value);
+    setStatus("idle");
+  };
+
+  const handleCancel = () => {
+    setName(null);
+    setStatus("idle");
+  };
+
   return (
     <form
-      onSubmit={handleSubmit}
       className="flex flex-col gap-5 border border-line bg-surface px-5 py-6 md:gap-5.5 md:p-8"
+      onSubmit={handleSubmit}
     >
       <h2 className="t-card">Profile</h2>
 
@@ -61,44 +75,38 @@ const ProfileForm = () => {
         <label className="flex flex-col gap-1.5">
           <span className="t-label-sm text-meta">Name</span>
           <input
+            className="border border-line-strong bg-surface px-3.5 py-3 text-[16px] md:text-[15px]"
+            disabled={!isLoaded}
+            onChange={handleNameChange}
             type="text"
             value={value}
-            disabled={!isLoaded}
-            onChange={(event) => {
-              setName(event.target.value);
-              setStatus("idle");
-            }}
-            className="border border-line-strong bg-surface px-3.5 py-3 text-[16px] md:text-[15px]"
           />
         </label>
 
         <label className="flex flex-col gap-1.5">
           <span className="t-label-sm text-meta">Email</span>
           <input
-            type="email"
-            readOnly
-            value={user?.primaryEmailAddress?.emailAddress ?? ""}
             className="border border-line-strong bg-surface px-3.5 py-3 text-[16px] text-subtle md:text-[15px]"
+            readOnly
+            type="email"
+            value={user?.primaryEmailAddress?.emailAddress ?? ""}
           />
         </label>
       </div>
 
       <div className="flex flex-wrap items-center gap-2.5">
         <button
-          type="submit"
-          disabled={!isDirty || status === "saving"}
           className="btn btn-ink px-5.5 py-3 text-[15px] md:text-[14px]"
+          disabled={!isDirty || status === "saving"}
+          type="submit"
         >
           {status === "saving" ? "Saving…" : "Save changes"}
         </button>
         <button
-          type="button"
-          disabled={!isDirty || status === "saving"}
-          onClick={() => {
-            setName(null);
-            setStatus("idle");
-          }}
           className="btn btn-outline px-5.5 py-3 text-[15px] md:text-[14px]"
+          disabled={!isDirty || status === "saving"}
+          onClick={handleCancel}
+          type="button"
         >
           Cancel
         </button>

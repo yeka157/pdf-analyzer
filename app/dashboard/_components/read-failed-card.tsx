@@ -15,25 +15,25 @@ const ReadFailedCard = ({
     <div className="flex items-center gap-2.5">
       <CircleAlert
         aria-hidden
-        strokeWidth={2}
         className="size-5 shrink-0 text-danger"
+        strokeWidth={2}
       />
       <div className="t-card">This file could not be read</div>
     </div>
     <p className="t-body text-subtle">{message}</p>
     {canRetry ? (
       <button
-        type="button"
-        onClick={onRetry}
         className="btn btn-ink mt-1 self-start px-5.5 py-3 text-[15px] md:text-[14px]"
+        onClick={onRetry}
+        type="button"
       >
         Retry this file
       </button>
     ) : (
       <button
-        type="button"
-        onClick={onChooseAnother}
         className="btn btn-ink mt-1 self-start px-5.5 py-3 text-[15px] md:text-[14px]"
+        onClick={onChooseAnother}
+        type="button"
       >
         Choose another PDF
       </button>

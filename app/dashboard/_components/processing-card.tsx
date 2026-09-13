@@ -19,22 +19,28 @@ const ProcessingCard = ({
       </div>
     </div>
 
-    <div className="progress-track" role="progressbar" aria-label="Reading document">
+    <div
+      aria-label="Reading document"
+      className="progress-track"
+      role="progressbar"
+    >
       <span />
     </div>
 
     <div className="hidden flex-col gap-3 md:flex">
       {SKELETON_WIDTHS.map((width) => (
-        <div key={width} className="skeleton-bar" style={{ width }} />
+        <div className="skeleton-bar" key={width} style={{ width }} />
       ))}
     </div>
 
     <div className="flex items-center justify-between gap-4">
-      <div className="t-small text-subtle">This usually takes a few seconds.</div>
+      <div className="t-small text-subtle">
+        This usually takes a few seconds.
+      </div>
       <button
-        type="button"
-        onClick={onCancel}
         className="btn btn-quiet shrink-0 text-[13px]"
+        onClick={onCancel}
+        type="button"
       >
         Cancel
       </button>
